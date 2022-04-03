@@ -8,7 +8,7 @@
 
 ## Description
 
-This is a CLI for using the (rustpotter)[https://github.com/GiviMAD/rustpotter] library on the command line. 
+This is a CLI for using the [rustpotter](https://github.com/GiviMAD/rustpotter) library on the command line. 
 
 ## Use Example 
 
