@@ -33,7 +33,7 @@ pub fn spot(command: SpotCommand) {
     detector_builder.set_frame_length_ms(command.audio_args.frame_length_ms);
     detector_builder.set_frame_shift_ms(command.audio_args.frame_shift_ms);
     let mut word_detector = detector_builder
-        .build(|kw| println!("Detected '{}' with score {}!", kw.wakeword, kw.score));
+        .build();
     for path in command.model_path {
         let result = word_detector.add_keyword_from_model(
             path,
@@ -64,7 +64,10 @@ pub fn spot(command: SpotCommand) {
         recorder
             .read(&mut frame_buffer)
             .expect("Failed to read audio frame");
-        word_detector.process_pcm_signed(frame_buffer);
+        let detections = word_detector.process_pcm_signed(frame_buffer);
+        for detection in detections {
+            println!("Detected '{}' with score {}!", detection.wakeword, detection.score)
+        }
     }
     println!("Stopped by user request");
 }

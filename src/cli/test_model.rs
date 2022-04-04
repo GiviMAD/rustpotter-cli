@@ -34,12 +34,15 @@ pub fn test(command: TestModelCommand) {
         Ok(buffer) => {
             let mut buffer_copy = buffer.to_vec();
             buffer_copy.append(& mut vec![0; detector_builder.get_samples_per_frame()]);
-            let mut word_detector = detector_builder.build(|kw| println!("Detected '{}' with score {}!", kw.wakeword, kw.score));
+            let mut word_detector = detector_builder.build();
             let add_wakeword_result = word_detector.add_keyword_from_model(command.model_path, command.average_templates, true);
             if add_wakeword_result.is_err() {
                 clap::Error::raw(clap::ErrorKind::InvalidValue, add_wakeword_result.unwrap_err()+"\n").exit();
             }
-            word_detector.process_bytes(buffer_copy);
+            let detections = word_detector.process_bytes(buffer_copy);
+            for detection in detections {
+                println!("Detected '{}' with score {}!", detection.wakeword, detection.score);
+            }
             println!("Done!")
         },
         Err(message) => {

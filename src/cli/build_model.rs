@@ -25,7 +25,7 @@ pub fn build(command: BuildModelCommand) {
     let mut detector_builder = detector::FeatureDetectorBuilder::new();
     detector_builder.set_frame_length_ms(command.audio_args.frame_length_ms);
     detector_builder.set_frame_shift_ms(command.audio_args.frame_shift_ms);
-    let mut word_detector = detector_builder.build(|_| panic!("Never"));
+    let mut word_detector = detector_builder.build();
     word_detector.add_keyword(
         command.model_name.clone(),
         false,
