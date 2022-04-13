@@ -1,6 +1,6 @@
 # Rustpotter CLI
 
-## CLI for rustpotter the personal keywords spotter written in Rust
+## CLI for Rustpotter, a personal keywords spotter written in Rust
 
 <div align="center">
     <img src="./logo.png?raw=true" width="400px"</img> 
