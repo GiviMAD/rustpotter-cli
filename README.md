@@ -46,6 +46,6 @@ rustpotter-cli build-model \
 hey_home.wav hey_home1.wav hey_home2.wav hey_home3.wav
 # you can spot using multiple models
 rustpotter-cli spot hey_home.rpw good_morning.rpw ...
-# you will get an output like this is your terminal on each spot event
+# you will get an output like this in your terminal on each spot event
 Detected 'good morning' with score 0.6146946!
 ```
