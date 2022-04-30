@@ -21,9 +21,10 @@ pub struct RecordCommand {
 }
 pub fn record(command: RecordCommand) {
     let mut detector_builder = detector::FeatureDetectorBuilder::new();
-    detector_builder.set_frame_length_ms(command.frame_length_ms);
+    detector_builder.set_sample_rate(16000);
+    let detector = detector_builder.build();
     let mut recorder_builder = RecorderBuilder::new();
-    recorder_builder.frame_length(detector_builder.get_samples_per_frame() as i32);
+    recorder_builder.frame_length(detector.get_samples_per_frame() as i32);
     recorder_builder.device_index(command.device_index as i32);
     recorder_builder.log_overflow(false);
     let recorder = recorder_builder
@@ -39,8 +40,8 @@ pub fn record(command: RecordCommand) {
     recorder.start().expect("Failed to start audio recording");
     LISTENING.store(true, Ordering::SeqCst);
     let mut audio_data = Vec::new();
+    let mut frame_buffer = vec![0; recorder.frame_length()];
     while LISTENING.load(Ordering::SeqCst) {
-        let mut frame_buffer = vec![0; recorder.frame_length()];
         recorder
             .read(&mut frame_buffer)
             .expect("Failed to read audio frame");
@@ -52,8 +53,8 @@ pub fn record(command: RecordCommand) {
     println!("Creating wav sample {}", command.output_path);
     let spec = hound::WavSpec {
         channels: 1,
-        sample_rate: detector_builder.get_sample_rate() as u32,
-        bits_per_sample: detector_builder.get_bit_length() as u16,
+        sample_rate: 16000,
+        bits_per_sample: 16,
         sample_format: hound::SampleFormat::Int,
     };
     let mut writer = hound::WavWriter::create(command.output_path, spec).unwrap();

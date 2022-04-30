@@ -1,0 +1,151 @@
+name: CI
+on:
+  push:
+    # branches: [ main ]
+    tags: [ "v*.*.*" ]
+  pull_request:
+    # branches: [ main ]
+  workflow_dispatch:
+jobs:
+  build-bin-debian-x86_64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Docker Setup Buildx
+        uses: docker/setup-buildx-action@v1.6.0
+        with:
+          install: true
+      - name: Build binaries
+        run: |
+          mkdir -p dist
+          docker build -f tools/Dockerfile . -t rustpotter-cli_binary:x86_64 --load
+          docker run --platform=amd64 -v $(pwd)/dist:/out rustpotter-cli_binary:x86_64 bash -c "cp /code/dist/* /out/"
+      - name: artifact debian x86_64
+        uses: actions/upload-artifact@v3
+        with:
+          name: rustpotter-cli_debian_x86_64
+          path: dist/rustpotter-cli_debian_x86_64
+
+  build-bin-debian-arm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - name: Docker Setup Buildx
+        uses: docker/setup-buildx-action@v1.6.0
+        with:
+          install: true
+      - name: Build binaries
+        run: |
+          mkdir -p dist
+          docker build -f tools/Dockerfile . -t rustpotter-cli_binary:arm --platform arm --load
+          DOCKER_BUILDKIT=1 docker run --platform=arm -v $(pwd)/dist:/out rustpotter-cli_binary:arm bash -c "cp /code/dist/* /out/"
+      - name: artifact debian arm
+        uses: actions/upload-artifact@v3
+        with:
+          name: rustpotter-cli_debian_armv7l
+          path: dist/rustpotter-cli_debian_armv7l
+
+  build-bin-debian-arm64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - name: Docker Setup Buildx
+        uses: docker/setup-buildx-action@v1.6.0
+        with:
+          install: true
+      - name: Build binaries
+        run: |
+          mkdir -p dist
+          docker build -f tools/Dockerfile . -t rustpotter-cli_binary:arm64 --platform arm64 --load
+          DOCKER_BUILDKIT=1 docker run --platform=arm64 -v $(pwd)/dist:/out rustpotter-cli_binary:arm64 bash -c "cp /code/dist/* /out/"
+      - name: artifact debian arm64
+        uses: actions/upload-artifact@v3
+        with:
+          name: rustpotter-cli_debian_aarch64
+          path: dist/rustpotter-cli_debian_aarch64
+      
+  build-bin-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Rustup using win.rustup.rs
+        run: |
+          # Disable the download progress bar which can cause perf issues
+          $ProgressPreference = "SilentlyContinue"
+          Invoke-WebRequest https://win.rustup.rs/ -OutFile rustup-init.exe
+          .\rustup-init.exe -y --default-host=x86_64-pc-windows-gnu --default-toolchain=none
+          del rustup-init.exe
+          rustup target add x86_64-pc-windows-gnu
+        shell: powershell
+      - name: build binary
+        run: |
+          cargo build --release
+          ls target/release/
+          mkdir dist
+          cp target/release/rustpotter-cli.exe dist/rustpotter-cli_win_x86_64.exe
+      - name: artifact windows x86_64
+        uses: actions/upload-artifact@v3
+        with:
+          name: rustpotter-cli_win_x86_64
+          path: dist/rustpotter-cli_win_x86_64.exe
+
+  build-bin-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: install rustup
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup-init.sh
+          sh rustup-init.sh -y --default-toolchain none
+          rustup target add x86_64-apple-darwin
+      - name: build binary
+        run: |
+          export DYLD_LIBRARY_PATH=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/
+          cargo build --release
+          mkdir dist
+          cp target/release/rustpotter-cli dist/rustpotter-cli_macos_x86_64
+          rustup target add aarch64-apple-darwin
+          cargo build --target aarch64-apple-darwin --release
+          cp target/aarch64-apple-darwin/release/rustpotter-cli dist/rustpotter-cli_macos_aarch64
+      - name: artifact macos x86_64
+        uses: actions/upload-artifact@v3
+        with:
+          name: rustpotter-cli_macos_x86_64
+          path: dist/rustpotter-cli_macos_x86_64
+      - name: artifact macos arm64
+        uses: actions/upload-artifact@v3
+        with:
+          name: rustpotter-cli_macos_aarch64
+          path: dist/rustpotter-cli_macos_aarch64
+  create_release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [build-bin-debian-x86_64,build-bin-debian-arm,build-bin-debian-arm64,build-bin-windows,build-bin-macos]
+    runs-on: ubuntu-latest
+    steps:
+        - uses: actions/checkout@v3
+        - uses: actions/download-artifact@v3
+        - name: check_tree
+          run: ls -R
+        - name: release
+          uses: softprops/action-gh-release@v1
+          id: create_release
+          with:
+            draft: false
+            prerelease: false
+            generate_release_notes: true
+            files: |
+              rustpotter-cli_debian_x86_64/rustpotter-cli_debian_x86_64
+              rustpotter-cli_debian_armv7l/rustpotter-cli_debian_armv7l
+              rustpotter-cli_debian_aarch64/rustpotter-cli_debian_aarch64
+              rustpotter-cli_win_x86_64/rustpotter-cli_win_x86_64.exe
+              rustpotter-cli_macos_x86_64/rustpotter-cli_macos_x86_64
+              rustpotter-cli_macos_aarch64/rustpotter-cli_macos_aarch64
+          env:
+            GITHUB_TOKEN: ${{ github.token }}
+
+
+

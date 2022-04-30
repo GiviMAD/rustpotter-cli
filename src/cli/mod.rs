@@ -14,22 +14,6 @@ struct CLI {
 }
 
 
-#[derive(Parser, Debug)]
-#[clap(author, version, about, long_about = None)]
-struct AudioArgs {
-    /// Number of coefficients to extract from the sample
-    #[clap(short='c', long, default_value_t = 13)]
-    num_coefficients: usize,
-    /// Emphasis coefficient to applied to the sample
-    #[clap(short='e', long, default_value_t = 0.97)]
-    pre_emphasis_coefficient: f32,
-    /// Sample frame length ms
-    #[clap(short='l', long, default_value_t = 30)]
-    frame_length_ms: usize,
-    /// Sample frame shift ms
-    #[clap(short='s', long, default_value_t = 10)]
-    frame_shift_ms: usize,
-}
 #[derive(Subcommand, Debug)]
 /// Record audio sample
 enum Commands {

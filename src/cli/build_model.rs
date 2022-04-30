@@ -1,8 +1,5 @@
-use clap::{Args};
-
+use clap::Args;
 use rustpotter::detector;
-
-use super::AudioArgs;
 
 #[derive(Args, Debug)]
 /// Build model file from samples
@@ -17,14 +14,14 @@ pub struct BuildModelCommand {
     #[clap(min_values = 1, required = true)]
     /// List of sample record paths
     sample_path: Vec<String>,
-    #[clap(flatten)]
-    audio_args: AudioArgs,
+    #[clap(short = 'r', long, default_value_t = 16000)]
+    /// Sample record sample rate
+    sample_rate: usize,
 }
 pub fn build(command: BuildModelCommand) {
     println!("Start building {}!", command.model_path);
     let mut detector_builder = detector::FeatureDetectorBuilder::new();
-    detector_builder.set_frame_length_ms(command.audio_args.frame_length_ms);
-    detector_builder.set_frame_shift_ms(command.audio_args.frame_shift_ms);
+    detector_builder.set_sample_rate(command.sample_rate);
     let mut word_detector = detector_builder.build();
     word_detector.add_keyword(
         command.model_name.clone(),
@@ -38,7 +35,7 @@ pub fn build(command: BuildModelCommand) {
             println!("{} created!", command.model_name);
         }
         Err(message) => {
-            clap::Error::raw(clap::ErrorKind::InvalidValue, message+"\n").exit();
+            clap::Error::raw(clap::ErrorKind::InvalidValue, message + "\n").exit();
         }
     };
 }
