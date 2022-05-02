@@ -22,7 +22,7 @@ pub struct TestModelCommand {
     /// Sample record sample rate
     sample_rate: usize,
 }
-pub fn test(command: TestModelCommand) {
+pub fn test(command: TestModelCommand) -> Result<(), String> {
     println!(
         "Testing file {} against model {}!",
         command.sample_path, command.model_path,
@@ -66,7 +66,8 @@ pub fn test(command: TestModelCommand) {
         Err(message) => {
             clap::Error::raw(clap::ErrorKind::InvalidValue, message + "\n").exit();
         }
-    }
+    };
+    Ok(())
 }
 
 fn get_audio_buffer(audio_path: String) -> Result<Vec<u8>, String> {

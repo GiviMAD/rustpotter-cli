@@ -10,12 +10,13 @@ RUN mkdir -p /code/.cargo \
 FROM rust:buster
 COPY src /code/src
 COPY Cargo.* /code/
+COPY build.rs /code/
 COPY --from=rust_vendor /code/.cargo /code/.cargo
 COPY --from=rust_vendor /code/vendor /code/vendor
 WORKDIR code
 RUN rustup component add rustfmt && \
     cargo build --release --offline && \
-    mkdir -p dist && \
-    cp target/release/rustpotter-cli dist/rustpotter-cli_debian_$(arch) && \
+    mkdir -p output && \
+    cp target/release/rustpotter-cli output/rustpotter-cli_debian_$(arch) && \
     rm -rf target
 

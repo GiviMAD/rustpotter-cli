@@ -2,3 +2,4 @@
 *.rpw
 *.wav
 .vscode
+dist

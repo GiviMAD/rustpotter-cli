@@ -18,7 +18,7 @@ pub struct BuildModelCommand {
     /// Sample record sample rate
     sample_rate: usize,
 }
-pub fn build(command: BuildModelCommand) {
+pub fn build(command: BuildModelCommand) -> Result<(), String> {
     println!("Start building {}!", command.model_path);
     let mut detector_builder = detector::FeatureDetectorBuilder::new();
     detector_builder.set_sample_rate(command.sample_rate);
@@ -38,4 +38,5 @@ pub fn build(command: BuildModelCommand) {
             clap::Error::raw(clap::ErrorKind::InvalidValue, message + "\n").exit();
         }
     };
+    Ok(())
 }

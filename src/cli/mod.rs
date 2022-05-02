@@ -5,6 +5,7 @@ mod test_model;
 mod spot;
 mod devices;
 use self::{record::{record,RecordCommand}, build_model::{BuildModelCommand, build}, test_model::{test, TestModelCommand}, spot::{spot, SpotCommand}, devices::{devices, DevicesCommand}};
+
 #[derive(Parser, Debug)]
 /// RustPotter: the free personal wakeword spotter written on rust
 #[clap(author, version, about, long_about = None, arg_required_else_help = true)]
@@ -38,5 +39,5 @@ pub fn run_cli() {
         Commands::TestModel(command) => test(command),
         Commands::Spot(command) => spot(command),
         Commands::Devices(command) => devices(command),
-    }
+    }.expect("Command failed");
 }

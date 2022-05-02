@@ -17,14 +17,14 @@ jobs:
           install: true
       - name: Build binaries
         run: |
-          mkdir -p dist
+          mkdir -p output
           docker build -f tools/Dockerfile . -t rustpotter-cli_binary:x86_64 --load
-          docker run --platform=amd64 -v $(pwd)/dist:/out rustpotter-cli_binary:x86_64 bash -c "cp /code/dist/* /out/"
+          docker run --platform=amd64 -v $(pwd)/output:/out rustpotter-cli_binary:x86_64 bash -c "cp /code/output/* /out/"
       - name: artifact debian x86_64
         uses: actions/upload-artifact@v3
         with:
           name: rustpotter-cli_debian_x86_64
-          path: dist/rustpotter-cli_debian_x86_64
+          path: output/rustpotter-cli_debian_x86_64
 
   build-bin-debian-arm:
     runs-on: ubuntu-latest
@@ -38,14 +38,14 @@ jobs:
           install: true
       - name: Build binaries
         run: |
-          mkdir -p dist
+          mkdir -p output
           docker build -f tools/Dockerfile . -t rustpotter-cli_binary:arm --platform arm --load
-          DOCKER_BUILDKIT=1 docker run --platform=arm -v $(pwd)/dist:/out rustpotter-cli_binary:arm bash -c "cp /code/dist/* /out/"
+          DOCKER_BUILDKIT=1 docker run --platform=arm -v $(pwd)/output:/out rustpotter-cli_binary:arm bash -c "cp /code/output/* /out/"
       - name: artifact debian arm
         uses: actions/upload-artifact@v3
         with:
           name: rustpotter-cli_debian_armv7l
-          path: dist/rustpotter-cli_debian_armv7l
+          path: output/rustpotter-cli_debian_armv7l
 
   build-bin-debian-arm64:
     runs-on: ubuntu-latest
@@ -59,14 +59,14 @@ jobs:
           install: true
       - name: Build binaries
         run: |
-          mkdir -p dist
+          mkdir -p output
           docker build -f tools/Dockerfile . -t rustpotter-cli_binary:arm64 --platform arm64 --load
-          DOCKER_BUILDKIT=1 docker run --platform=arm64 -v $(pwd)/dist:/out rustpotter-cli_binary:arm64 bash -c "cp /code/dist/* /out/"
+          DOCKER_BUILDKIT=1 docker run --platform=arm64 -v $(pwd)/output:/out rustpotter-cli_binary:arm64 bash -c "cp /code/output/* /out/"
       - name: artifact debian arm64
         uses: actions/upload-artifact@v3
         with:
           name: rustpotter-cli_debian_aarch64
-          path: dist/rustpotter-cli_debian_aarch64
+          path: output/rustpotter-cli_debian_aarch64
       
   build-bin-windows:
     runs-on: windows-latest
@@ -85,13 +85,13 @@ jobs:
         run: |
           cargo build --release
           ls target/release/
-          mkdir dist
-          cp target/release/rustpotter-cli.exe dist/rustpotter-cli_win_x86_64.exe
+          mkdir output
+          cp target/release/rustpotter-cli.exe output/rustpotter-cli_win_x86_64.exe
       - name: artifact windows x86_64
         uses: actions/upload-artifact@v3
         with:
           name: rustpotter-cli_win_x86_64
-          path: dist/rustpotter-cli_win_x86_64.exe
+          path: output/rustpotter-cli_win_x86_64.exe
 
   build-bin-macos:
     runs-on: macos-latest
@@ -106,21 +106,21 @@ jobs:
         run: |
           export DYLD_LIBRARY_PATH=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/
           cargo build --release
-          mkdir dist
-          cp target/release/rustpotter-cli dist/rustpotter-cli_macos_x86_64
+          mkdir output
+          cp target/release/rustpotter-cli output/rustpotter-cli_macos_x86_64
           rustup target add aarch64-apple-darwin
           cargo build --target aarch64-apple-darwin --release
-          cp target/aarch64-apple-darwin/release/rustpotter-cli dist/rustpotter-cli_macos_aarch64
+          cp target/aarch64-apple-darwin/release/rustpotter-cli output/rustpotter-cli_macos_aarch64
       - name: artifact macos x86_64
         uses: actions/upload-artifact@v3
         with:
           name: rustpotter-cli_macos_x86_64
-          path: dist/rustpotter-cli_macos_x86_64
+          path: output/rustpotter-cli_macos_x86_64
       - name: artifact macos arm64
         uses: actions/upload-artifact@v3
         with:
           name: rustpotter-cli_macos_aarch64
-          path: dist/rustpotter-cli_macos_aarch64
+          path: output/rustpotter-cli_macos_aarch64
   create_release:
     if: startsWith(github.ref, 'refs/tags/')
     needs: [build-bin-debian-x86_64,build-bin-debian-arm,build-bin-debian-arm64,build-bin-windows,build-bin-macos]

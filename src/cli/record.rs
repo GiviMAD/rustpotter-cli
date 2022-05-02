@@ -2,7 +2,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use clap::Args;
 use pv_recorder::RecorderBuilder;
-
+#[cfg(not(debug_assertions))]
+use crate::pv_recorder_utils::_get_pv_recorder_lib;
 use rustpotter::detector;
 
 #[derive(Args, Debug)]
@@ -16,10 +17,10 @@ pub struct RecordCommand {
     /// Input device index used for record
     device_index: usize,
     /// Sample frame length ms
-    #[clap(short='l', long, default_value_t = 30)]
+    #[clap(short = 'l', long, default_value_t = 30)]
     frame_length_ms: usize,
 }
-pub fn record(command: RecordCommand) {
+pub fn record(command: RecordCommand) -> Result<(), String> {
     let mut detector_builder = detector::FeatureDetectorBuilder::new();
     detector_builder.set_sample_rate(16000);
     let detector = detector_builder.build();
@@ -27,6 +28,10 @@ pub fn record(command: RecordCommand) {
     recorder_builder.frame_length(detector.get_samples_per_frame() as i32);
     recorder_builder.device_index(command.device_index as i32);
     recorder_builder.log_overflow(false);
+    #[cfg(not(debug_assertions))]
+    let lib_temp_file = _get_pv_recorder_lib();
+    #[cfg(not(debug_assertions))]
+    recorder_builder.library_path(lib_temp_file.path());
     let recorder = recorder_builder
         .device_index(command.device_index as i32)
         .init()
@@ -62,4 +67,9 @@ pub fn record(command: RecordCommand) {
         writer.write_sample(sample).unwrap();
     }
     println!("Done");
+    #[cfg(not(debug_assertions))]
+    {
+        lib_temp_file.close().expect("Unable to remove temp file");
+    }
+    Ok(())
 }

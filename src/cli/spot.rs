@@ -3,7 +3,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use clap::Args;
 use pv_recorder::RecorderBuilder;
 use rustpotter::detector;
-
+#[cfg(not(debug_assertions))]
+use crate::pv_recorder_utils::_get_pv_recorder_lib;
 #[derive(Args, Debug)]
 /// Spot keyword in audio
 #[clap()]
@@ -22,7 +23,7 @@ pub struct SpotCommand {
     average_templates: bool,
 }
 
-pub fn spot(command: SpotCommand) {
+pub fn spot(command: SpotCommand) -> Result<(), String> {
     println!("Spotting using models: {:?}!", command.model_path);
     let mut detector_builder = detector::FeatureDetectorBuilder::new();
     detector_builder.set_threshold(command.threshold);
@@ -39,6 +40,10 @@ pub fn spot(command: SpotCommand) {
     recorder_builder.buffer_size_msec(word_detector.get_samples_per_frame() as i32 * 2);
     recorder_builder.device_index(command.device_index as i32);
     recorder_builder.log_overflow(false);
+    #[cfg(not(debug_assertions))]
+    let lib_temp_file = _get_pv_recorder_lib();
+    #[cfg(not(debug_assertions))]
+    recorder_builder.library_path(lib_temp_file.path());
     let recorder = recorder_builder
         .init()
         .expect("Failed to initialize recorder");
@@ -63,4 +68,7 @@ pub fn spot(command: SpotCommand) {
         }
     }
     println!("Stopped by user request");
+    #[cfg(not(debug_assertions))]
+    lib_temp_file.close().expect("Unable to remove temp file");
+    Ok(())
 }
