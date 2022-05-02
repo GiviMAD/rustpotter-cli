@@ -54,7 +54,7 @@ pub fn test(command: TestModelCommand) -> Result<(), String> {
                 .map(|bytes| i16::from_le_bytes([bytes[0], bytes[1]]))
                 .collect::<Vec<_>>()
                 .chunks_exact(word_detector.get_samples_per_frame())
-                .filter_map(|chunk| word_detector.process_pcm_signed(chunk))
+                .filter_map(|chunk| word_detector.process(chunk))
                 .for_each(|detection| {
                     println!(
                         "Detected '{}' with score {}!",

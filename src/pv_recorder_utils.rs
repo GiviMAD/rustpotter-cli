@@ -6,7 +6,7 @@ use tempfile::{NamedTempFile};
 static _DIST_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/dist");
 
 pub fn _get_pv_recorder_lib() -> NamedTempFile {
-    let rel_path = base_library_path();
+    let rel_path = _base_library_path();
     let native_lib = _DIST_DIR.get_file(rel_path).unwrap();
     let mut file = NamedTempFile::new().expect("Unable to create temporal file");
     file.write_all(native_lib.contents()).expect("Unable to write to temporal file");
@@ -53,27 +53,27 @@ fn find_machine_type() -> String {
 }
 
 #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
-fn base_library_path() -> PathBuf {
+fn _base_library_path() -> PathBuf {
     PathBuf::from("mac/x86_64/libpv_recorder.dylib")
 }
 
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-fn base_library_path() -> PathBuf {
+fn _base_library_path() -> PathBuf {
     PathBuf::from("mac/arm64/libpv_recorder.dylib")
 }
 
 #[cfg(target_os = "windows")]
-fn base_library_path() -> PathBuf {
+fn _base_library_path() -> PathBuf {
     PathBuf::from("windows/amd64/libpv_recorder.dll")
 }
 
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-fn base_library_path() -> PathBuf {
+fn _base_library_path() -> PathBuf {
     PathBuf::from("linux/x86_64/libpv_recorder.so")
 }
 
 #[cfg(all(target_os = "linux", any(target_arch = "arm", target_arch = "aarch64")))]
-fn base_library_path() -> PathBuf {
+fn _base_library_path() -> PathBuf {
     const RPI_MACHINES: [&str; 4] = ["arm11", "cortex-a7", "cortex-a53", "cortex-a72"];
 
     let machine = find_machine_type();

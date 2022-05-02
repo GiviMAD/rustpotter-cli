@@ -59,7 +59,7 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
         recorder
             .read(&mut frame_buffer)
             .expect("Failed to read audio frame");
-        let detections = word_detector.process_pcm_signed(&frame_buffer);
+        let detections = word_detector.process(&frame_buffer);
         for detection in detections {
             println!(
                 "Detected '{}' with score {}!",
