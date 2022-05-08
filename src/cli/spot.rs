@@ -2,6 +2,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 #[cfg(not(debug_assertions))]
 use crate::pv_recorder_utils::_get_pv_recorder_lib;
+use crate::utils::enable_rustpotter_log;
 use clap::Args;
 use pv_recorder::RecorderBuilder;
 use rustpotter::{VadMode, WakewordDetectorBuilder};
@@ -15,12 +16,12 @@ pub struct SpotCommand {
     #[clap(short, long, default_value_t = 0.5)]
     /// Default detection threshold, only applies to models without threshold
     threshold: f32,
+    #[clap(short, long)]
+    /// Default detection averaged threshold, only applies to models without averaged threshold, defaults to threshold/2.
+    averaged_threshold: Option<f32>,
     #[clap(short, long, default_value_t = 0)]
     /// Input device index used for record
     device_index: usize,
-    #[clap(short = 'a', long)]
-    /// Enables template averaging
-    average_templates: bool,
     #[clap(short = 'e', long)]
     /// Enables eager mode
     eager_mode: bool,
@@ -44,13 +45,13 @@ pub struct SpotCommand {
 pub fn spot(command: SpotCommand) -> Result<(), String> {
     println!("Spotting using models: {:?}!", command.model_path);
     if command.debug {
-        simple_logger::SimpleLogger::new()
-        .with_level(log::LevelFilter::Warn)
-        .with_module_level("rustpotter", log::LevelFilter::Debug)
-        .init().unwrap();
+        enable_rustpotter_log();
     }
     let mut detector_builder = WakewordDetectorBuilder::new();
     detector_builder.set_threshold(command.threshold);
+    if command.averaged_threshold.is_some() {
+        detector_builder.set_averaged_threshold(command.averaged_threshold.unwrap());
+    }
     detector_builder.set_sample_rate(16000);
     detector_builder.set_eager_mode(command.eager_mode);
     detector_builder.set_single_thread(command.single_thread);
@@ -61,8 +62,7 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
     }
     let mut word_detector = detector_builder.build();
     for path in command.model_path {
-        let result =
-            word_detector.add_keyword_from_model_file(path, command.average_templates, true);
+        let result = word_detector.add_keyword_from_model_file(path, true);
         if result.is_err() {
             clap::Error::raw(clap::ErrorKind::InvalidValue, result.unwrap_err() + "\n").exit();
         }

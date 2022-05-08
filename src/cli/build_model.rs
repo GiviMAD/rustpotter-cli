@@ -17,6 +17,12 @@ pub struct BuildModelCommand {
     #[clap(min_values = 1, required = true)]
     /// List of sample record paths
     sample_path: Vec<String>,
+    #[clap(short = 't', long)]
+    /// Threshold to configure in the generated model, overwrites the detector threshold
+    threshold: Option<f32>,
+    #[clap(short = 'a', long)]
+    /// Averaged threshold to configure in the generated model, overwrites the detector averaged threshold
+    averaged_threshold: Option<f32>,
 }
 pub fn build(command: BuildModelCommand) -> Result<(), String> {
     println!("Start building {}!", command.model_path);
@@ -33,8 +39,8 @@ pub fn build(command: BuildModelCommand) -> Result<(), String> {
     word_detector.add_keyword(
         command.model_name.clone(),
         false,
-        true,
-        None,
+        command.averaged_threshold,
+        command.threshold,
         command.sample_path,
     );
     match word_detector.generate_wakeword_model_file(command.model_name.clone(), command.model_path)
