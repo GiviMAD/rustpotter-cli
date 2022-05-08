@@ -1,5 +1,8 @@
+use std::{fs::File, io::BufReader};
+
 use clap::Args;
-use rustpotter::detector;
+use hound::WavReader;
+use rustpotter::WakewordDetectorBuilder;
 
 #[derive(Args, Debug)]
 /// Build model file from samples
@@ -14,14 +17,18 @@ pub struct BuildModelCommand {
     #[clap(min_values = 1, required = true)]
     /// List of sample record paths
     sample_path: Vec<String>,
-    #[clap(short = 'r', long, default_value_t = 16000)]
-    /// Sample record sample rate
-    sample_rate: usize,
 }
 pub fn build(command: BuildModelCommand) -> Result<(), String> {
     println!("Start building {}!", command.model_path);
-    let mut detector_builder = detector::FeatureDetectorBuilder::new();
-    detector_builder.set_sample_rate(command.sample_rate);
+    let detector_builder = WakewordDetectorBuilder::new();
+    println!("From samples:");
+    for path in &command.sample_path {
+        let reader = BufReader::new(File::open(path).or_else(|err| Err(err.to_string()))?);
+        let wav_spec = WavReader::new(reader)
+            .or_else(|err| Err(err.to_string()))?
+            .spec();
+        println!("{}: {:?}", path, wav_spec);
+    }
     let mut word_detector = detector_builder.build();
     word_detector.add_keyword(
         command.model_name.clone(),
@@ -30,7 +37,8 @@ pub fn build(command: BuildModelCommand) -> Result<(), String> {
         None,
         command.sample_path,
     );
-    match word_detector.create_wakeword_model(command.model_name.clone(), command.model_path) {
+    match word_detector.generate_wakeword_model_file(command.model_name.clone(), command.model_path)
+    {
         Ok(_) => {
             println!("{} created!", command.model_name);
         }

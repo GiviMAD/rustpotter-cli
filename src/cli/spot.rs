@@ -1,12 +1,12 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use clap::Args;
-use pv_recorder::RecorderBuilder;
-use rustpotter::detector;
 #[cfg(not(debug_assertions))]
 use crate::pv_recorder_utils::_get_pv_recorder_lib;
+use clap::Args;
+use pv_recorder::RecorderBuilder;
+use rustpotter::{VadMode, WakewordDetectorBuilder};
 #[derive(Args, Debug)]
-/// Spot keyword in audio
+/// Spot keyword processing wav audio with spec 16000hz 16bit 1 channel int
 #[clap()]
 pub struct SpotCommand {
     #[clap(min_values = 1, required = true)]
@@ -21,16 +21,48 @@ pub struct SpotCommand {
     #[clap(short = 'a', long)]
     /// Enables template averaging
     average_templates: bool,
+    #[clap(short = 'e', long)]
+    /// Enables eager mode
+    eager_mode: bool,
+    #[clap(long)]
+    /// Unless enabled the comparison against multiple wakewords run in separate threads, not applies when single wakeword
+    single_thread: bool,
+    #[clap(short = 'v', long)]
+    /// Enables a vad detector to reduce computation on absence of voice sound
+    vad_mode: Option<String>,
+    #[clap(long, default_value_t = 3)]
+    /// Seconds to disable the vad detector after voice is detected
+    vad_delay: u16,
+    #[clap(long, default_value_t = 0.5)]
+    /// Voice/silence ratio in the last second to consider voice detected
+    vad_sensitivity: f32,
+    #[clap(long)]
+    /// Enables rustpotter debug log
+    debug: bool,
 }
 
 pub fn spot(command: SpotCommand) -> Result<(), String> {
     println!("Spotting using models: {:?}!", command.model_path);
-    let mut detector_builder = detector::FeatureDetectorBuilder::new();
+    if command.debug {
+        simple_logger::SimpleLogger::new()
+        .with_level(log::LevelFilter::Warn)
+        .with_module_level("rustpotter", log::LevelFilter::Debug)
+        .init().unwrap();
+    }
+    let mut detector_builder = WakewordDetectorBuilder::new();
     detector_builder.set_threshold(command.threshold);
     detector_builder.set_sample_rate(16000);
+    detector_builder.set_eager_mode(command.eager_mode);
+    detector_builder.set_single_thread(command.single_thread);
+    if command.vad_mode.is_some() {
+        detector_builder.set_vad_mode(get_vad_mode(&command.vad_mode.unwrap()));
+        detector_builder.set_vad_delay(command.vad_delay);
+        detector_builder.set_vad_sensitivity(command.vad_sensitivity);
+    }
     let mut word_detector = detector_builder.build();
     for path in command.model_path {
-        let result = word_detector.add_keyword_from_model(path, command.average_templates, true);
+        let result =
+            word_detector.add_keyword_from_model_file(path, command.average_templates, true);
         if result.is_err() {
             clap::Error::raw(clap::ErrorKind::InvalidValue, result.unwrap_err() + "\n").exit();
         }
@@ -59,7 +91,7 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
         recorder
             .read(&mut frame_buffer)
             .expect("Failed to read audio frame");
-        let detections = word_detector.process(&frame_buffer);
+        let detections = word_detector.process_i16(&frame_buffer);
         for detection in detections {
             println!(
                 "Detected '{}' with score {}!",
@@ -71,4 +103,13 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
     #[cfg(not(debug_assertions))]
     lib_temp_file.close().expect("Unable to remove temp file");
     Ok(())
+}
+fn get_vad_mode(name: &str) -> VadMode {
+    match name {
+        "low-bitrate" => VadMode::LowBitrate,
+        "quality" => VadMode::Quality,
+        "aggressive" => VadMode::Aggressive,
+        "very-aggressive" => VadMode::VeryAggressive,
+        _ => clap::Error::raw(clap::ErrorKind::InvalidValue, "Unsupported vad mode.\n").exit(),
+    }
 }

@@ -4,10 +4,10 @@ use clap::Args;
 use pv_recorder::RecorderBuilder;
 #[cfg(not(debug_assertions))]
 use crate::pv_recorder_utils::_get_pv_recorder_lib;
-use rustpotter::detector;
+use rustpotter::{WakewordDetectorBuilder};
 
 #[derive(Args, Debug)]
-/// Record audio sample
+/// Record wav audio sample with spec 16000hz 16bit 1 channel int
 #[clap()]
 pub struct RecordCommand {
     #[clap()]
@@ -16,12 +16,9 @@ pub struct RecordCommand {
     #[clap(short, long, default_value_t = 0)]
     /// Input device index used for record
     device_index: usize,
-    /// Sample frame length ms
-    #[clap(short = 'l', long, default_value_t = 30)]
-    frame_length_ms: usize,
 }
 pub fn record(command: RecordCommand) -> Result<(), String> {
-    let mut detector_builder = detector::FeatureDetectorBuilder::new();
+    let mut detector_builder = WakewordDetectorBuilder::new();
     detector_builder.set_sample_rate(16000);
     let detector = detector_builder.build();
     let mut recorder_builder = RecorderBuilder::new();
