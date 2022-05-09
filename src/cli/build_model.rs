@@ -26,7 +26,6 @@ pub struct BuildModelCommand {
 }
 pub fn build(command: BuildModelCommand) -> Result<(), String> {
     println!("Start building {}!", command.model_path);
-    let detector_builder = WakewordDetectorBuilder::new();
     println!("From samples:");
     for path in &command.sample_path {
         let reader = BufReader::new(File::open(path).or_else(|err| Err(err.to_string()))?);
@@ -35,7 +34,7 @@ pub fn build(command: BuildModelCommand) -> Result<(), String> {
             .spec();
         println!("{}: {:?}", path, wav_spec);
     }
-    let mut word_detector = detector_builder.build();
+    let mut word_detector = WakewordDetectorBuilder::new().build();
     word_detector.add_keyword(
         command.model_name.clone(),
         false,

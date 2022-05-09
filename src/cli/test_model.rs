@@ -38,14 +38,15 @@ pub fn test(command: TestModelCommand) -> Result<(), String> {
         BufReader::new(File::open(command.sample_path).or_else(|err| Err(err.to_string()))?);
     let mut wav_reader = WavReader::new(reader).or_else(|err| Err(err.to_string()))?;
     let wav_specs = wav_reader.spec();
-    detector_builder.set_averaged_threshold(command.averaged_threshold);
-    detector_builder.set_threshold(command.threshold);
-    detector_builder.set_sample_rate(wav_specs.sample_rate as usize);
-    detector_builder.set_bits_per_sample(wav_specs.bits_per_sample);
-    detector_builder.set_sample_format(wav_specs.sample_format);
     // multi-channel still not supported
     assert!(wav_specs.channels == 1);
-    let mut word_detector = detector_builder.build();
+    let mut word_detector = detector_builder
+        .set_averaged_threshold(command.averaged_threshold)
+        .set_threshold(command.threshold)
+        .set_sample_rate(wav_specs.sample_rate as usize)
+        .set_bits_per_sample(wav_specs.bits_per_sample)
+        .set_sample_format(wav_specs.sample_format)
+        .build();
     let add_wakeword_result = word_detector.add_keyword_from_model_file(command.model_path, true);
     if add_wakeword_result.is_err() {
         clap::Error::raw(

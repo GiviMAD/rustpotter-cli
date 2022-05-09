@@ -28,8 +28,8 @@ pub struct SpotCommand {
     #[clap(long)]
     /// Unless enabled the comparison against multiple wakewords run in separate threads, not applies when single wakeword
     single_thread: bool,
-    #[clap(short = 'v', long)]
-    /// Enables a vad detector to reduce computation on absence of voice sound
+    #[clap(short = 'v', long, possible_values = ["low-bitrate", "quality", "aggressive", "very-aggressive"])]
+    /// Enables using a vad detector to reduce computation on absence of voice sound
     vad_mode: Option<String>,
     #[clap(long, default_value_t = 3)]
     /// Seconds to disable the vad detector after voice is detected
@@ -48,19 +48,21 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
         enable_rustpotter_log();
     }
     let mut detector_builder = WakewordDetectorBuilder::new();
-    detector_builder.set_threshold(command.threshold);
     if command.averaged_threshold.is_some() {
         detector_builder.set_averaged_threshold(command.averaged_threshold.unwrap());
     }
-    detector_builder.set_sample_rate(16000);
-    detector_builder.set_eager_mode(command.eager_mode);
-    detector_builder.set_single_thread(command.single_thread);
     if command.vad_mode.is_some() {
-        detector_builder.set_vad_mode(get_vad_mode(&command.vad_mode.unwrap()));
-        detector_builder.set_vad_delay(command.vad_delay);
-        detector_builder.set_vad_sensitivity(command.vad_sensitivity);
+        detector_builder
+            .set_vad_mode(get_vad_mode(&command.vad_mode.unwrap()))
+            .set_vad_delay(command.vad_delay)
+            .set_vad_sensitivity(command.vad_sensitivity);
     }
-    let mut word_detector = detector_builder.build();
+    let mut word_detector = detector_builder
+        .set_threshold(command.threshold)
+        .set_sample_rate(16000)
+        .set_eager_mode(command.eager_mode)
+        .set_single_thread(command.single_thread)
+        .build();
     for path in command.model_path {
         let result = word_detector.add_keyword_from_model_file(path, true);
         if result.is_err() {

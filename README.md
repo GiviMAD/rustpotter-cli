@@ -40,6 +40,7 @@ rustpotter-cli spot -t 0.563 hey_home.rpw
 # rebuild a model adding a custom threshold for the word,
 # this one has prevalence over the default one
 rustpotter-cli build-model \
+--averaged-threshold 0.54 \
 --threshold 0.54 \
 --model-path hey_home.rpw \
 --model-name "hey home" \
