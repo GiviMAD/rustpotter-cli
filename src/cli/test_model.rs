@@ -47,7 +47,7 @@ pub fn test(command: TestModelCommand) -> Result<(), String> {
         .set_bits_per_sample(wav_specs.bits_per_sample)
         .set_sample_format(wav_specs.sample_format)
         .build();
-    let add_wakeword_result = word_detector.add_keyword_from_model_file(command.model_path, true);
+    let add_wakeword_result = word_detector.add_wakeword_from_model_file(command.model_path, true);
     if add_wakeword_result.is_err() {
         clap::Error::raw(
             clap::ErrorKind::InvalidValue,

@@ -1,6 +1,6 @@
 # Rustpotter CLI
 
-## CLI for Rustpotter, a personal keywords spotter written in Rust
+## CLI for Rustpotter, a free and open source wake word spotter forged in rust
 
 <div align="center">
     <img src="./logo.png?raw=true" width="400px"</img> 
@@ -17,7 +17,7 @@ This is a CLI for using the [rustpotter](https://github.com/GiviMAD/rustpotter) 
 rustpotter-cli -h
 # list available input devices
 rustpotter-cli devices
-# record samples, you should press "ctrl + c" to stop after saying your keyword
+# record samples, you should press "ctrl + c" to stop after saying your wakeword
 rustpotter-cli record hey_home.wav
 rustpotter-cli record hey_home1.wav
 rustpotter-cli record hey_home2.wav

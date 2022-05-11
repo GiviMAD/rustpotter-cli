@@ -35,7 +35,7 @@ pub fn build(command: BuildModelCommand) -> Result<(), String> {
         println!("{}: {:?}", path, wav_spec);
     }
     let mut word_detector = WakewordDetectorBuilder::new().build();
-    word_detector.add_keyword(
+    word_detector.add_wakeword(
         command.model_name.clone(),
         false,
         command.averaged_threshold,

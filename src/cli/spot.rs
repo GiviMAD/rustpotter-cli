@@ -7,7 +7,7 @@ use clap::Args;
 use pv_recorder::RecorderBuilder;
 use rustpotter::{VadMode, WakewordDetectorBuilder};
 #[derive(Args, Debug)]
-/// Spot keyword processing wav audio with spec 16000hz 16bit 1 channel int
+/// Spot wakeword processing wav audio with spec 16000hz 16bit 1 channel int
 #[clap()]
 pub struct SpotCommand {
     #[clap(min_values = 1, required = true)]
@@ -64,7 +64,7 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
         .set_single_thread(command.single_thread)
         .build();
     for path in command.model_path {
-        let result = word_detector.add_keyword_from_model_file(path, true);
+        let result = word_detector.add_wakeword_from_model_file(path, true);
         if result.is_err() {
             clap::Error::raw(clap::ErrorKind::InvalidValue, result.unwrap_err() + "\n").exit();
         }
