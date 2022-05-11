@@ -1,17 +1,23 @@
 use include_dir::{include_dir, Dir};
+use std::io::Write;
 use std::path::PathBuf;
-use std::io::{Write};
-use tempfile::{NamedTempFile};
+use tempfile::{Builder as TempFileBuilder, TempPath};
 
 static _DIST_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/dist");
 
-pub fn _get_pv_recorder_lib() -> NamedTempFile {
+pub fn _get_pv_recorder_lib() -> TempPath {
     let rel_path = _base_library_path();
     let native_lib = _DIST_DIR.get_file(rel_path).unwrap();
-    let mut file = NamedTempFile::new().expect("Unable to create temporal file");
-    file.write_all(native_lib.contents()).expect("Unable to write to temporal file");
+    let mut file = TempFileBuilder::new()
+        .prefix("pv_recorder")
+        .suffix(".tmp")
+        .rand_bytes(8)
+        .tempfile()
+        .unwrap();
+    file.write_all(native_lib.contents())
+        .expect("Unable to write to temporal file");
     file.flush().expect("Unable to write to temporal file");
-    file
+    file.into_temp_path()
 }
 
 #[cfg(all(target_os = "linux", any(target_arch = "arm", target_arch = "aarch64")))]
