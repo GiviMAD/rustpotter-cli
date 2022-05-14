@@ -1,6 +1,6 @@
 use clap::Args;
 use pv_recorder::RecorderBuilder;
-// #[cfg(not(debug_assertions))]
+#[cfg(not(debug_assertions))]
 use crate::pv_recorder_utils::_get_pv_recorder_lib;
 #[derive(Args, Debug)]
 /// Record audio sample
