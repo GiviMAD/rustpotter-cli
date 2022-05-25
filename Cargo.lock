@@ -286,9 +286,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.11.0"
+version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b10983b38c53aebdf33f542c6275b0f58a238129d00c4ae0e6fb59738d783ca"
+checksum = "7709cef83f0c1f58f666e746a08b21e0085f7440fa6a29cc194d68aac97a4225"
 
 [[package]]
 name = "os_str_bytes"
@@ -462,9 +462,9 @@ dependencies = [
 
 [[package]]
 name = "rustpotter"
-version = "0.9.1"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9721495bda0126011a2a10dc25375ef0255960056fc213d9eea5ce1018bc202"
+checksum = "1c32d113d8cae5a9d02291fddaf0c2a11d90c7b003e13566c8e000217f9ce655"
 dependencies = [
  "hound",
  "log",
@@ -479,7 +479,7 @@ dependencies = [
 
 [[package]]
 name = "rustpotter-cli"
-version = "0.9.1"
+version = "0.10.0"
 dependencies = [
  "clap",
  "ctrlc",

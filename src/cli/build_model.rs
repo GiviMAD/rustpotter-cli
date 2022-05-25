@@ -36,7 +36,7 @@ pub fn build(command: BuildModelCommand) -> Result<(), String> {
     }
     let mut word_detector = WakewordDetectorBuilder::new().build();
     word_detector.add_wakeword(
-        command.model_name.clone(),
+        &command.model_name,
         false,
         command.averaged_threshold,
         command.threshold,
