@@ -8,7 +8,7 @@ description = "CLI for Rustpotter, a free and open source wake word spotter forg
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rustpotter = { version = "0.10.0", features = ["vad"] }
+rustpotter = { version = "0.10.1", features = ["vad"] }
 log = "0.4.6"
 pv_recorder = "1.0.2"
 ctrlc = "3.2.2"

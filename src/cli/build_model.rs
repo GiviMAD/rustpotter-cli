@@ -4,6 +4,8 @@ use clap::Args;
 use hound::WavReader;
 use rustpotter::WakewordDetectorBuilder;
 
+use crate::utils::enable_rustpotter_log;
+
 #[derive(Args, Debug)]
 /// Build model file from samples
 #[clap()]
@@ -23,6 +25,9 @@ pub struct BuildModelCommand {
     #[clap(short = 'a', long)]
     /// Averaged threshold to configure in the generated model, overwrites the detector averaged threshold
     averaged_threshold: Option<f32>,
+    #[clap(long)]
+    /// Enables rustpotter debug log
+    debug: bool,
 }
 pub fn build(command: BuildModelCommand) -> Result<(), String> {
     println!("Start building {}!", command.model_path);
@@ -33,6 +38,9 @@ pub fn build(command: BuildModelCommand) -> Result<(), String> {
             .or_else(|err| Err(err.to_string()))?
             .spec();
         println!("{}: {:?}", path, wav_spec);
+    }
+    if command.debug {
+        enable_rustpotter_log();
     }
     let mut word_detector = WakewordDetectorBuilder::new().build();
     word_detector.add_wakeword(
