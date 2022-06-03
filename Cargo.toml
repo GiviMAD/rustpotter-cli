@@ -1,6 +1,6 @@
 [package]
 name = "rustpotter-cli"
-version = "0.10.0"
+version = "0.10.1"
 edition = "2021"
 license = "Apache-2.0"
 description = "CLI for Rustpotter, a free and open source wake word spotter forged in rust"
@@ -8,7 +8,7 @@ description = "CLI for Rustpotter, a free and open source wake word spotter forg
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rustpotter = { version = "0.10.1", features = ["vad"] }
+rustpotter = { version = "0.11.0", features = ["log", "vad"] }
 log = "0.4.6"
 pv_recorder = "1.0.2"
 ctrlc = "3.2.2"
@@ -17,3 +17,8 @@ hound = "3.4.0"
 include_dir = "0.7.2"
 tempfile = "3.3.0"
 simple_logger = "2.1.0"
+
+[features]
+default = []
+# include recorder library into the binary for distribution outside cargo
+dist = []

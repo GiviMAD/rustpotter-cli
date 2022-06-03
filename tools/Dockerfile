@@ -15,7 +15,7 @@ COPY --from=rust_vendor /code/.cargo /code/.cargo
 COPY --from=rust_vendor /code/vendor /code/vendor
 WORKDIR code
 RUN rustup component add rustfmt && \
-    cargo build --release --offline && \
+    cargo build --release --features dist --offline && \
     mkdir -p output && \
     cp target/release/rustpotter-cli output/rustpotter-cli_debian_$(arch) && \
     rm -rf target

@@ -1,11 +1,11 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
-#[cfg(not(debug_assertions))]
+#[cfg(feature = "dist")]
 use crate::pv_recorder_utils::_get_pv_recorder_lib;
 use crate::utils::enable_rustpotter_log;
 use clap::Args;
 use pv_recorder::RecorderBuilder;
-use rustpotter::{VadMode, WakewordDetectorBuilder};
+use rustpotter::{NoiseDetectionMode, VadMode, WakewordDetectorBuilder};
 #[derive(Args, Debug)]
 /// Spot wakeword processing wav audio with spec 16000hz 16bit 1 channel int
 #[clap()]
@@ -28,8 +28,18 @@ pub struct SpotCommand {
     #[clap(long)]
     /// Unless enabled the comparison against multiple wakewords run in separate threads, not applies when single wakeword
     single_thread: bool,
+    #[clap(short = 'n', long, possible_values = ["easiest", "easy", "normal", "hard", "hardest"])]
+    /// Enables using the built-in noise detection
+    /// to reduce computation on absence of voice sound.
+    noise_mode: Option<String>,
+    #[clap(long, default_value_t = 3)]
+    /// Seconds to disable the noise detector after voice is detected
+    noise_delay: u16,
+    #[clap(long, default_value_t = 0.5)]
+    /// Voice/silence ratio in the last second to consider voice detected
+    noise_sensitivity: f32,
+    /// Enables using a noise detector to reduce computation on absence of voice sound
     #[clap(short = 'v', long, possible_values = ["low-bitrate", "quality", "aggressive", "very-aggressive"])]
-    /// Enables using a vad detector to reduce computation on absence of voice sound
     vad_mode: Option<String>,
     #[clap(long, default_value_t = 3)]
     /// Seconds to disable the vad detector after voice is detected
@@ -57,7 +67,14 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
             .set_vad_delay(command.vad_delay)
             .set_vad_sensitivity(command.vad_sensitivity);
     }
+    if command.noise_mode.is_some() {
+        detector_builder
+            .set_noise_mode(get_noise_mode(&command.noise_mode.unwrap()))
+            .set_noise_delay(command.noise_delay)
+            .set_noise_sensitivity(command.noise_sensitivity);
+    } 
     let mut word_detector = detector_builder
+        .set_noise_mode(NoiseDetectionMode::Hardest)
         .set_threshold(command.threshold)
         .set_sample_rate(16000)
         .set_eager_mode(command.eager_mode)
@@ -74,9 +91,9 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
     recorder_builder.buffer_size_msec(word_detector.get_samples_per_frame() as i32 * 2);
     recorder_builder.device_index(command.device_index as i32);
     recorder_builder.log_overflow(false);
-    #[cfg(not(debug_assertions))]
+    #[cfg(feature = "dist")]
     let lib_temp_path = _get_pv_recorder_lib();
-    #[cfg(not(debug_assertions))]
+    #[cfg(feature = "dist")]
     recorder_builder.library_path(lib_temp_path.to_path_buf().as_path());
     let recorder = recorder_builder
         .init()
@@ -102,7 +119,7 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
         }
     }
     println!("Stopped by user request");
-    #[cfg(all(not(debug_assertions), not(target_os = "windows")))]
+    #[cfg(all(feature = "dist", not(target_os = "windows")))]
     lib_temp_path.close().expect("Unable to remove temp file");
     Ok(())
 }
@@ -112,6 +129,16 @@ fn get_vad_mode(name: &str) -> VadMode {
         "quality" => VadMode::Quality,
         "aggressive" => VadMode::Aggressive,
         "very-aggressive" => VadMode::VeryAggressive,
+        _ => clap::Error::raw(clap::ErrorKind::InvalidValue, "Unsupported vad mode.\n").exit(),
+    }
+}
+fn get_noise_mode(name: &str) -> NoiseDetectionMode {
+    match name {
+        "easiest" => NoiseDetectionMode::Easiest,
+        "easy" => NoiseDetectionMode::Easy,
+        "normal" => NoiseDetectionMode::Normal,
+        "hard" => NoiseDetectionMode::Hard,
+        "hardest" => NoiseDetectionMode::Hardest,
         _ => clap::Error::raw(clap::ErrorKind::InvalidValue, "Unsupported vad mode.\n").exit(),
     }
 }

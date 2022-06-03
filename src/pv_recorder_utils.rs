@@ -1,10 +1,14 @@
+#[cfg(feature = "dist")]
 use include_dir::{include_dir, Dir};
+#[cfg(feature = "dist")]
 use std::io::Write;
+#[cfg(feature = "dist")]
 use std::path::PathBuf;
+#[cfg(feature = "dist")]
 use tempfile::{Builder as TempFileBuilder, TempPath};
-
+#[cfg(feature = "dist")]
 static _DIST_DIR: Dir = include_dir!("$CARGO_MANIFEST_DIR/dist");
-
+#[cfg(feature = "dist")]
 pub fn _get_pv_recorder_lib() -> TempPath {
     let rel_path = _base_library_path();
     let native_lib = _DIST_DIR.get_file(rel_path).unwrap();
@@ -20,7 +24,7 @@ pub fn _get_pv_recorder_lib() -> TempPath {
     file.into_temp_path()
 }
 
-#[cfg(all(target_os = "linux", any(target_arch = "arm", target_arch = "aarch64")))]
+#[cfg(all(feature = "dist", target_os = "linux", any(target_arch = "arm", target_arch = "aarch64")))]
 fn find_machine_type() -> String {
     use std::process::Command;
 
@@ -58,27 +62,27 @@ fn find_machine_type() -> String {
     String::from(machine)
 }
 
-#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+#[cfg(all(feature = "dist", target_os = "macos", target_arch = "x86_64"))]
 fn _base_library_path() -> PathBuf {
     PathBuf::from("mac/x86_64/libpv_recorder.dylib")
 }
 
-#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+#[cfg(all(feature = "dist", target_os = "macos", target_arch = "aarch64"))]
 fn _base_library_path() -> PathBuf {
     PathBuf::from("mac/arm64/libpv_recorder.dylib")
 }
 
-#[cfg(target_os = "windows")]
+#[cfg(all(feature = "dist", target_os = "windows"))]
 fn _base_library_path() -> PathBuf {
     PathBuf::from("windows/amd64/libpv_recorder.dll")
 }
 
-#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+#[cfg(all(feature = "dist", target_os = "linux", target_arch = "x86_64"))]
 fn _base_library_path() -> PathBuf {
     PathBuf::from("linux/x86_64/libpv_recorder.so")
 }
 
-#[cfg(all(target_os = "linux", any(target_arch = "arm", target_arch = "aarch64")))]
+#[cfg(all(feature = "dist", target_os = "linux", any(target_arch = "arm", target_arch = "aarch64")))]
 fn _base_library_path() -> PathBuf {
     const RPI_MACHINES: [&str; 4] = ["arm11", "cortex-a7", "cortex-a53", "cortex-a72"];
 

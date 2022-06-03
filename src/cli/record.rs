@@ -2,7 +2,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use clap::Args;
 use pv_recorder::RecorderBuilder;
-#[cfg(not(debug_assertions))]
+#[cfg(feature = "dist")]
 use crate::pv_recorder_utils::_get_pv_recorder_lib;
 use rustpotter::{WakewordDetectorBuilder};
 
@@ -25,9 +25,9 @@ pub fn record(command: RecordCommand) -> Result<(), String> {
     recorder_builder.frame_length(detector.get_samples_per_frame() as i32);
     recorder_builder.device_index(command.device_index as i32);
     recorder_builder.log_overflow(false);
-    #[cfg(not(debug_assertions))]
+    #[cfg(feature = "dist")]
     let lib_temp_path = _get_pv_recorder_lib();
-    #[cfg(not(debug_assertions))]
+    #[cfg(feature = "dist")]
     recorder_builder.library_path(lib_temp_path.to_path_buf().as_path());
     let recorder = recorder_builder
         .device_index(command.device_index as i32)
@@ -64,7 +64,7 @@ pub fn record(command: RecordCommand) -> Result<(), String> {
         writer.write_sample(sample).unwrap();
     }
     println!("Done");
-    #[cfg(all(not(debug_assertions), not(target_os = "windows")))]
+    #[cfg(all(feature = "dist", not(target_os = "windows")))]
     lib_temp_path.close().expect("Unable to remove temp file");
     Ok(())
 }

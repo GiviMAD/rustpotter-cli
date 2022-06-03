@@ -1,13 +1,18 @@
+#[cfg(feature = "dist")]
 use std::{env, fs, path::PathBuf};
 
 fn main() {
-    let base_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    let mut out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
-    out_dir.pop();
-    out_dir.pop();
-    prepare_pv_recorder_lib(base_dir, out_dir);
+    #[cfg(feature = "dist")]
+    {
+        let base_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+        let mut out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
+        out_dir.pop();
+        out_dir.pop();
+        prepare_pv_recorder_lib(base_dir, out_dir);
+    }
 }
-fn prepare_pv_recorder_lib (base_dir: PathBuf, build_dir: PathBuf) {
+#[cfg(feature = "dist")]
+fn prepare_pv_recorder_lib(base_dir: PathBuf, build_dir: PathBuf) {
     let pv_recorder_lib_path = fs::read_dir(build_dir)
         .unwrap()
         .find_map(|entry| {
@@ -30,7 +35,11 @@ fn prepare_pv_recorder_lib (base_dir: PathBuf, build_dir: PathBuf) {
         let windows_x86_64_binary = windows_folder.clone().join("amd64/libpv_recorder.dll");
         let windows_x86_64_binary_dest = dist_folder.clone().join("windows/amd64");
         fs::create_dir_all(windows_x86_64_binary_dest.clone()).unwrap();
-        fs::copy(windows_x86_64_binary, windows_x86_64_binary_dest.join("libpv_recorder.dll")).unwrap();
+        fs::copy(
+            windows_x86_64_binary,
+            windows_x86_64_binary_dest.join("libpv_recorder.dll"),
+        )
+        .unwrap();
     }
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
     {
@@ -38,9 +47,13 @@ fn prepare_pv_recorder_lib (base_dir: PathBuf, build_dir: PathBuf) {
         let linux_x86_64_binary = linux_folder.clone().join("x86_64/libpv_recorder.so");
         let linux_x86_64_binary_dest = dist_folder.clone().join("linux/x86_64");
         fs::create_dir_all(linux_x86_64_binary_dest.clone()).unwrap();
-        fs::copy(linux_x86_64_binary, linux_x86_64_binary_dest.join("libpv_recorder.so")).unwrap();
+        fs::copy(
+            linux_x86_64_binary,
+            linux_x86_64_binary_dest.join("libpv_recorder.so"),
+        )
+        .unwrap();
     }
-    #[cfg(all(target_os = "linux", any(target_arch = "arm",  target_arch = "aarch64")))]
+    #[cfg(all(target_os = "linux", any(target_arch = "arm", target_arch = "aarch64")))]
     let rpi_folder = pv_recorder_lib_path.clone().join("raspberry-pi");
     #[cfg(all(target_os = "linux", target_arch = "arm"))]
     {
