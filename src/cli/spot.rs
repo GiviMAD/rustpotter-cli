@@ -32,9 +32,6 @@ pub struct SpotCommand {
     /// Enables using the built-in noise detection
     /// to reduce computation on absence of voice sound.
     noise_mode: Option<String>,
-    #[clap(long, default_value_t = 3)]
-    /// Seconds to disable the noise detector after voice is detected
-    noise_delay: u16,
     #[clap(long, default_value_t = 0.5)]
     /// Voice/silence ratio in the last second to consider voice detected
     noise_sensitivity: f32,
@@ -70,11 +67,9 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
     if command.noise_mode.is_some() {
         detector_builder
             .set_noise_mode(get_noise_mode(&command.noise_mode.unwrap()))
-            .set_noise_delay(command.noise_delay)
             .set_noise_sensitivity(command.noise_sensitivity);
     } 
     let mut word_detector = detector_builder
-        .set_noise_mode(NoiseDetectionMode::Hardest)
         .set_threshold(command.threshold)
         .set_sample_rate(16000)
         .set_eager_mode(command.eager_mode)
