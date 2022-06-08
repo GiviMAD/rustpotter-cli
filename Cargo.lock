@@ -226,6 +226,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "nnnoiseless"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "99c041f552e9876564df5f9396ed2756b0bd84862e14899dba9854cdec749ff3"
+dependencies = [
+ "once_cell",
+ "rustfft",
+]
+
+[[package]]
 name = "num-complex"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -417,15 +427,14 @@ dependencies = [
 
 [[package]]
 name = "rustpotter"
-version = "0.13.1"
+version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba6fc04b66f94dfa1e0de4b88f23b5a57aa03caa8694aac4b148eb379557e777"
+checksum = "c005672ce971cb10ac91abab62db4bde27154cc6b7ed2de93cab472fc7f7b364"
 dependencies = [
  "hound",
  "log",
- "once_cell",
+ "nnnoiseless",
  "rubato",
- "rustfft",
  "savefile",
  "savefile-derive",
  "simple-matrix",
@@ -434,7 +443,7 @@ dependencies = [
 
 [[package]]
 name = "rustpotter-cli"
-version = "0.13.1"
+version = "0.14.4"
 dependencies = [
  "clap",
  "ctrlc",
