@@ -1,6 +1,6 @@
 # Rustpotter CLI
 
-## CLI for Rustpotter, a free and open source wake word spotter forged in rust
+## CLI for Rustpotter, an open source wake word spotter forged in rust
 
 <div align="center">
     <img src="./logo.png?raw=true" width="400px"</img> 
