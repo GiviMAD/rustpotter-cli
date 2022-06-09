@@ -26,9 +26,6 @@ pub struct SpotCommand {
     /// Enables eager mode
     eager_mode: bool,
     #[clap(long)]
-    /// Enables training mode, the word will be persisted on the current directory
-    training_mode: bool,
-    #[clap(long)]
     /// Unless enabled the comparison against multiple wakewords run in separate threads, not applies when single wakeword
     single_thread: bool,
     #[clap(short = 'n', long, possible_values = ["easiest", "easy", "normal", "hard", "hardest"])]
@@ -76,7 +73,6 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
         .set_threshold(command.threshold)
         .set_sample_rate(16000)
         .set_eager_mode(command.eager_mode)
-        .set_eager_mode(command.training_mode)
         .set_single_thread(command.single_thread)
         .build();
     let mut wakeword_names: Vec<String> = Vec::new();
@@ -121,15 +117,6 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
         }
     }
     println!("Stopped by user request");
-    if command.training_mode {
-        println!("Generating trained wakeword files...");
-        for name in wakeword_names {
-            word_detector.generate_trained_wakeword_model_file(
-                name.clone(),
-                name.replace(" ", "_") + "_trained.rpw",
-            )?;
-        }
-    }
     #[cfg(all(feature = "dist", not(target_os = "windows")))]
     lib_temp_path.close().expect("Unable to remove temp file");
     Ok(())

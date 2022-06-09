@@ -427,9 +427,9 @@ dependencies = [
 
 [[package]]
 name = "rustpotter"
-version = "0.14.4"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c005672ce971cb10ac91abab62db4bde27154cc6b7ed2de93cab472fc7f7b364"
+checksum = "a9ffea90f28d614196a430c702cb451f981bdab327896f8fc4694b3dcb08a6e3"
 dependencies = [
  "hound",
  "log",
@@ -443,7 +443,7 @@ dependencies = [
 
 [[package]]
 name = "rustpotter-cli"
-version = "0.14.4"
+version = "0.15.0"
 dependencies = [
  "clap",
  "ctrlc",
