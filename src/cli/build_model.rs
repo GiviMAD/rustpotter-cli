@@ -43,20 +43,20 @@ pub fn build(command: BuildModelCommand) -> Result<(), String> {
         enable_rustpotter_log();
     }
     let mut word_detector = WakewordDetectorBuilder::new().build();
-    word_detector.add_wakeword(
+    word_detector.add_wakeword_with_wav_files(
         &command.model_name,
         false,
         command.averaged_threshold,
         command.threshold,
         command.sample_path,
-    );
+    ).map_err(|e| e.to_string())?;
     match word_detector.generate_wakeword_model_file(command.model_name.clone(), command.model_path)
     {
         Ok(_) => {
             println!("{} created!", command.model_name);
         }
-        Err(message) => {
-            clap::Error::raw(clap::ErrorKind::InvalidValue, message + "\n").exit();
+        Err(error) => {
+            clap::Error::raw(clap::ErrorKind::InvalidValue, error.to_string() + "\n").exit();
         }
     };
     Ok(())

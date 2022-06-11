@@ -46,11 +46,10 @@ pub fn test(command: TestModelCommand) -> Result<(), String> {
         .set_sample_format(wav_specs.sample_format)
         .set_channels(wav_specs.channels)
         .build();
-    let add_wakeword_result = word_detector.add_wakeword_from_model_file(command.model_path, true);
-    if add_wakeword_result.is_err() {
+    if let Err(error) = word_detector.add_wakeword_from_model_file(command.model_path, true) {
         clap::Error::raw(
             clap::ErrorKind::InvalidValue,
-            add_wakeword_result.unwrap_err() + "\n",
+            error.to_string() + "\n",
         )
         .exit();
     }

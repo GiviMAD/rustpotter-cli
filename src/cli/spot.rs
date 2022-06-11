@@ -75,13 +75,10 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
         .set_eager_mode(command.eager_mode)
         .set_single_thread(command.single_thread)
         .build();
-    let mut wakeword_names: Vec<String> = Vec::new();
     for path in command.model_path {
         let result = word_detector.add_wakeword_from_model_file(path, true);
-        if result.is_err() {
-            clap::Error::raw(clap::ErrorKind::InvalidValue, result.unwrap_err() + "\n").exit();
-        } else {
-            wakeword_names.push(result.unwrap());
+        if let Err(error) = result {
+            clap::Error::raw(clap::ErrorKind::InvalidValue, error.to_string() + "\n").exit();
         }
     }
     let mut recorder_builder = RecorderBuilder::new();
