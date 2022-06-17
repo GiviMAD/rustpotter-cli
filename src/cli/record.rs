@@ -7,7 +7,7 @@ use crate::pv_recorder_utils::_get_pv_recorder_lib;
 use rustpotter::{WakewordDetectorBuilder};
 
 #[derive(Args, Debug)]
-/// Record wav audio sample with spec 16000hz 16bit 1 channel int
+/// Record wav audio with spec 16000hz 16bit 1 channel int. Press "Ctrl + c" to stop and save.
 #[clap()]
 pub struct RecordCommand {
     #[clap()]
@@ -40,6 +40,7 @@ pub fn record(command: RecordCommand) -> Result<(), String> {
     .expect("Unable to setup signal handler");
     println!("Start recording...");
     recorder.start().expect("Failed to start audio recording");
+    println!("Press 'Ctrl + c' to stop.");
     LISTENING.store(true, Ordering::SeqCst);
     let mut audio_data = Vec::new();
     let mut frame_buffer = vec![0; recorder.frame_length()];
@@ -52,7 +53,7 @@ pub fn record(command: RecordCommand) -> Result<(), String> {
 
     println!("Stop recording...");
     recorder.stop().expect("Failed to stop audio recording");
-    println!("Creating wav sample {}", command.output_path);
+    println!("Creating wav file {}", command.output_path);
     let spec = hound::WavSpec {
         channels: 1,
         sample_rate: 16000,

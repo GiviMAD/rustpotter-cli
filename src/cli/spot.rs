@@ -33,7 +33,7 @@ pub struct SpotCommand {
     /// to reduce computation on absence of voice sound.
     noise_mode: Option<String>,
     #[clap(long, default_value_t = 0.5)]
-    /// Voice/silence ratio in the last second to consider voice detected
+    /// Voice/silence ratio in the last second to consider voice is detected
     noise_sensitivity: f32,
     /// Enables using a noise detector to reduce computation on absence of voice sound
     #[clap(short = 'v', long, possible_values = ["low-bitrate", "quality", "aggressive", "very-aggressive"])]
@@ -42,7 +42,7 @@ pub struct SpotCommand {
     /// Seconds to disable the vad detector after voice is detected
     vad_delay: u16,
     #[clap(long, default_value_t = 0.5)]
-    /// Voice/silence ratio in the last second to consider voice detected
+    /// Voice/silence ratio in the last second to consider voice is detected
     vad_sensitivity: f32,
     #[clap(long)]
     /// Enables rustpotter debug log
