@@ -106,7 +106,7 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
             .read(&mut frame_buffer)
             .expect("Failed to read audio frame");
         let detections = word_detector.process_i16(&frame_buffer);
-        for detection in detections {
+        for detection in &detections {
             println!(
                 "Detected '{}' with score {}!",
                 detection.wakeword, detection.score

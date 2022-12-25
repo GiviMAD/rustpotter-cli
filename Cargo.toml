@@ -1,6 +1,6 @@
 [package]
 name = "rustpotter-cli"
-version = "1.0.0"
+version = "1.0.1"
 edition = "2021"
 license = "Apache-2.0"
 description = "CLI for Rustpotter, an open source wake word spotter forged in rust."
@@ -8,7 +8,7 @@ authors = ["Miguel Álvarez Díez <miguelwork92@gmail.com>"]
 repository = "https://github.com/GiviMAD/rustpotter"
 
 [dependencies]
-rustpotter = { version = "1.0.0", features = ["log", "vad"] }
+rustpotter = { version = "1.0.1", features = ["files", "build", "log", "vad"] }
 log = "0.4.6"
 pv_recorder = "1.0.2"
 ctrlc = "3.2.2"

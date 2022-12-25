@@ -35,8 +35,8 @@ pub fn test(command: TestModelCommand) -> Result<(), String> {
     }
     let mut detector_builder = WakewordDetectorBuilder::new();
     let reader =
-        BufReader::new(File::open(command.sample_path).or_else(|err| Err(err.to_string()))?);
-    let mut wav_reader = WavReader::new(reader).or_else(|err| Err(err.to_string()))?;
+        BufReader::new(File::open(command.sample_path).map_err(|err| err.to_string())?);
+    let mut wav_reader = WavReader::new(reader).map_err(|err| err.to_string())?;
     let wav_specs = wav_reader.spec();
     let mut word_detector = detector_builder
         .set_averaged_threshold(command.averaged_threshold)

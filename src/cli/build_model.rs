@@ -33,9 +33,8 @@ pub fn build(command: BuildModelCommand) -> Result<(), String> {
     println!("Start building {}!", command.model_path);
     println!("From samples:");
     for path in &command.sample_path {
-        let reader = BufReader::new(File::open(path).or_else(|err| Err(err.to_string()))?);
-        let wav_spec = WavReader::new(reader)
-            .or_else(|err| Err(err.to_string()))?
+        let reader = BufReader::new(File::open(path).map_err(|err| err.to_string())?);
+        let wav_spec = WavReader::new(reader).map_err(|err| err.to_string())?
             .spec();
         println!("{}: {:?}", path, wav_spec);
     }
