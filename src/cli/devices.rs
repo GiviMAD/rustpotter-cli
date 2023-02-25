@@ -1,33 +1,49 @@
+extern crate cpal;
 use clap::Args;
-use pv_recorder::RecorderBuilder;
-#[cfg(feature = "dist")]
-use crate::pv_recorder_utils::_get_pv_recorder_lib;
-#[derive(Args, Debug)]
+use cpal::traits::{DeviceTrait, HostTrait};
 /// Record audio sample
+#[derive(Args, Debug)]
 #[clap()]
 pub struct DevicesCommand {}
 pub fn devices(_: DevicesCommand) -> Result<(), String> {
-    #[cfg(feature = "dist")]
-    let mut recorder_builder = RecorderBuilder::new();
-    #[cfg(not(feature = "dist"))]
-    let recorder_builder = RecorderBuilder::new();
-    #[cfg(feature = "dist")]
-    let lib_temp_path = _get_pv_recorder_lib();
-    #[cfg(feature = "dist")]
-    recorder_builder.library_path(lib_temp_path.to_path_buf().as_path());
-    let recorder =  recorder_builder.init()
-    .expect("Failed to initialize recorder");
-    println!("Available record audio devices:");
-    let audio_devices = recorder.get_audio_devices();
-    match audio_devices {
-        Ok(audio_devices) => {
-            for (idx, device) in audio_devices.iter().enumerate() {
-                println!("{}: {:?}", idx, device);
+    println!("Supported hosts:\n  {:?}", cpal::ALL_HOSTS);
+    let default_host = cpal::default_host();
+    let host_id = default_host.id();
+    println!("Using hosts:\n  {:?}", default_host.id());
+    println!("{}", host_id.name());
+    let host = cpal::host_from_id(host_id).map_err(|err| err.to_string())?;
+    let default_in = host.default_input_device().map(|e| e.name().unwrap());
+    if let Some(def_in) = default_in {
+        println!("  Default input device:\n    {}", def_in);
+    } else {
+        println!("  No default input device");
+    }
+    let devices = host.input_devices().map_err(|err| err.to_string())?;
+    println!("  Devices: ");
+    for (device_index, device) in devices.enumerate() {
+        println!(
+            "  {} - \"{}\"",
+            device_index,
+            device.name().map_err(|err| err.to_string())?
+        );
+
+        // Input configs
+        if let Ok(conf) = device.default_input_config() {
+            println!("    Default input stream config:\n      {:?}", conf);
+        }
+        let input_configs = match device.supported_input_configs() {
+            Ok(f) => f.collect(),
+            Err(e) => {
+                println!("    Error getting supported input configs: {:?}", e);
+                Vec::new()
+            }
+        };
+        if !input_configs.is_empty() {
+            println!("    All supported input stream configs:");
+            for (config_index, config) in input_configs.into_iter().enumerate() {
+                println!("      {} - {:?}", config_index, config);
             }
         }
-        Err(err) => panic!("Failed to get audio devices: {}", err),
-    };
-    #[cfg(all(feature = "dist", not(target_os = "windows")))]
-    lib_temp_path.close().expect("Unable to remove temp file");
+    }
     Ok(())
 }

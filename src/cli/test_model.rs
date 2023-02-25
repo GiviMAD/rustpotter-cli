@@ -1,94 +1,112 @@
 use clap::Args;
 use hound::{SampleFormat, WavReader};
-use rustpotter::WakewordDetectorBuilder;
+use rustpotter::{Rustpotter, RustpotterConfig};
 use std::{fs::File, io::BufReader};
 
-use crate::utils::enable_rustpotter_log;
+use super::spot::{print_detection, ClapScoreMode};
 
 #[derive(Args, Debug)]
 /// Test model file against a wav sample, detector is automatically configured according to the sample spec
 #[clap()]
 pub struct TestModelCommand {
     #[clap()]
-    /// Output model path
+    /// Model to test.
     model_path: String,
     #[clap()]
-    /// Sample record path
+    /// Wav record to test.
     sample_path: String,
     #[clap(short, long, default_value_t = 0.5)]
-    /// Default detection threshold, only applies to models without threshold
+    /// Default detection threshold, only applies to models without threshold.
     threshold: f32,
     #[clap(short, long, default_value_t = 0.2)]
-    /// Default detection averaged threshold, only applies to models without averaged threshold
+    /// Default detection averaged threshold, only applies to models without averaged threshold.
     averaged_threshold: f32,
-    #[clap(long)]
+    #[clap(short, long, default_value_t = 10)]
+    /// Minimum number of partial detections
+    min_scores: usize,
+    #[clap(short = 's', long, default_value_t = ClapScoreMode::Max)]
+    score_mode: ClapScoreMode,
+    #[clap(short = 'b', long)]
+    /// Enables a band-pass audio filter.
+    band_pass: bool,
+    #[clap(long, default_value_t = 80.)]
+    /// Band-pass audio filter low cutoff.
+    low_cutoff: f32,
+    #[clap(long, default_value_t = 400.)]
+    /// Band-pass audio filter high cutoff.
+    high_cutoff: f32,
+    #[clap(short = 'g', long)]
+    /// Enables a gain-normalizer audio filter.
+    gain_normalizer: bool,
+    #[clap(short, long)]
     /// Enables rustpotter debug log
-    debug: bool,
+    verbose: bool,
 }
 pub fn test(command: TestModelCommand) -> Result<(), String> {
     println!(
         "Testing file {} against model {}!",
         command.sample_path, command.model_path,
     );
-    if command.debug {
-        enable_rustpotter_log();
-    }
-    let mut detector_builder = WakewordDetectorBuilder::new();
-    let reader =
-        BufReader::new(File::open(command.sample_path).map_err(|err| err.to_string())?);
-    let mut wav_reader = WavReader::new(reader).map_err(|err| err.to_string())?;
+    // Read wav file
+    let file_reader = BufReader::new(File::open(command.sample_path).map_err(|err| err.to_string())?);
+    let mut wav_reader = WavReader::new(file_reader).map_err(|err| err.to_string())?;
     let wav_specs = wav_reader.spec();
-    let mut word_detector = detector_builder
-        .set_averaged_threshold(command.averaged_threshold)
-        .set_threshold(command.threshold)
-        .set_sample_rate(wav_specs.sample_rate as usize)
-        .set_bits_per_sample(wav_specs.bits_per_sample)
-        .set_sample_format(wav_specs.sample_format)
-        .set_channels(wav_specs.channels)
-        .build();
-    if let Err(error) = word_detector.add_wakeword_from_model_file(command.model_path, true) {
+    let mut config = RustpotterConfig::default();
+    config.fmt.sample_rate = wav_specs.sample_rate as usize;
+    config.fmt.bits_per_sample = wav_specs.bits_per_sample;
+    config.fmt.channels = wav_specs.channels;
+    config.detector.avg_threshold = command.averaged_threshold;
+    config.detector.threshold = command.threshold;
+    config.detector.min_scores = command.min_scores;
+    config.detector.score_mode = command.score_mode.into();
+    config.filters.gain_normalizer = command.gain_normalizer;
+    config.filters.band_pass = command.band_pass;
+    config.filters.low_cutoff = command.low_cutoff;
+    config.filters.high_cutoff = command.high_cutoff;
+    let mut rustpotter = Rustpotter::new(&config)?;
+    if let Err(error) = rustpotter.add_wakeword_from_file(&command.model_path) {
         clap::Error::raw(
-            clap::ErrorKind::InvalidValue,
+            clap::error::ErrorKind::InvalidValue,
             error.to_string() + "\n",
         )
         .exit();
     }
+    let mut partial_detection_counter = 0;
     match wav_specs.sample_format {
         SampleFormat::Int => {
             let mut buffer = wav_reader
                 .samples::<i32>()
                 .map(Result::unwrap)
                 .collect::<Vec<_>>();
-            buffer.append(&mut vec![0; word_detector.get_samples_per_frame()]);
+            buffer.append(&mut vec![0; rustpotter.get_samples_per_frame() * 100]);
             buffer
-                .chunks_exact(word_detector.get_samples_per_frame())
-                .filter_map(|chunk| word_detector.process(chunk))
-                .for_each(|detection| {
-                    println!(
-                        "Detected '{}' with score {}!",
-                        detection.wakeword, detection.score
-                    )
+                .chunks_exact(rustpotter.get_samples_per_frame())
+                .for_each(|chunk| {
+                    print_detection(
+                        rustpotter.process_int_buffer(chunk),
+                        rustpotter.get_partial_detection(),
+                        &mut partial_detection_counter,
+                        command.verbose,
+                    );
                 });
-            println!("Done!");
-            Ok(())
         }
         SampleFormat::Float => {
             let mut buffer = wav_reader
                 .samples::<f32>()
                 .map(Result::unwrap)
                 .collect::<Vec<_>>();
-            buffer.append(&mut vec![0.; word_detector.get_samples_per_frame()]);
+            buffer.append(&mut vec![0.; rustpotter.get_samples_per_frame() * 100]);
             buffer
-                .chunks_exact(word_detector.get_samples_per_frame())
-                .filter_map(|chunk| word_detector.process_f32(chunk))
-                .for_each(|detection| {
-                    println!(
-                        "Detected '{}' with score {}!",
-                        detection.wakeword, detection.score
-                    )
+                .chunks_exact(rustpotter.get_samples_per_frame())
+                .for_each(|chunk| {
+                    print_detection(
+                        rustpotter.process_float_buffer(chunk),
+                        rustpotter.get_partial_detection(),
+                        &mut partial_detection_counter,
+                        command.verbose,
+                    );
                 });
-            println!("Done!");
-            Ok(())
         }
-    }
+    };
+    Ok(())
 }
