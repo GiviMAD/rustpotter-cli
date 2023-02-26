@@ -13,23 +13,30 @@ pub struct SpotCommand {
     #[clap(num_args = 1.., required = true)]
     /// Model path list.
     model_path: Vec<String>,
-    #[clap(short, long)]
-    /// Input device index used for record
+    #[clap(short = 'i', long)]
+    /// Input device index used for record.
     device_index: Option<usize>,
     #[clap(short, long)]
-    /// Input device index used for record
+    /// Input device index used for record.
     config_index: Option<usize>,
     #[clap(short, long, default_value_t = 0.5)]
     /// Default detection threshold, only applies to models without threshold.
     threshold: f32,
     #[clap(short, long, default_value_t = 0.)]
-    /// Default detection averaged threshold, only applies to models without averaged threshold, defaults to threshold/2.
+    /// Default detection averaged threshold, only applies to models without averaged threshold.
     averaged_threshold: f32,
     #[clap(short, long, default_value_t = 10)]
     /// Minimum number of partial detections
     min_scores: usize,
     #[clap(short = 's', long, default_value_t = ClapScoreMode::Max)]
     score_mode: ClapScoreMode,
+    #[clap(short = 'g', long)]
+    /// Enables a gain-normalizer audio filter.
+    gain_normalizer: bool,
+    #[clap(short, long)]
+    /// Set the rms level reference used by the gain normalizer filter.
+    /// If unset the max wakeword rms level is used.
+    rms_level_ref: Option<f32>,
     #[clap(short = 'b', long)]
     /// Enables a band-pass audio filter.
     band_pass: bool,
@@ -39,12 +46,12 @@ pub struct SpotCommand {
     #[clap(long, default_value_t = 400.)]
     /// Band-pass audio filter high cutoff.
     high_cutoff: f32,
-    #[clap(short = 'g', long)]
-    /// Enables a gain-normalizer audio filter.
-    gain_normalizer: bool,
     #[clap(short, long)]
-    /// Enables rustpotter debug log
-    verbose: bool,
+    /// Log partial detections.
+    debug: bool,
+    #[clap(long)]
+    /// Log rms level ref, gain applied per frame and frame rms level.
+    debug_gain: bool,
 }
 
 pub fn spot(command: SpotCommand) -> Result<(), String> {
@@ -72,11 +79,12 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
     config.detector.threshold = command.threshold;
     config.detector.min_scores = command.min_scores;
     config.detector.score_mode = command.score_mode.into();
-    config.filters.gain_normalizer = command.gain_normalizer;
-    config.filters.band_pass = command.band_pass;
-    config.filters.low_cutoff = command.low_cutoff;
-    config.filters.high_cutoff = command.high_cutoff;
-    if command.verbose {
+    config.filters.gain_normalizer.enabled = command.gain_normalizer;
+    config.filters.gain_normalizer.rms_level_ref = command.rms_level_ref;
+    config.filters.band_pass.enabled = command.band_pass;
+    config.filters.band_pass.low_cutoff = command.low_cutoff;
+    config.filters.band_pass.high_cutoff = command.high_cutoff;
+    if command.debug {
         println!("Rustpotter config:\n{:?}", config);
     }
     let mut rustpotter = Rustpotter::new(&config)?;
@@ -96,6 +104,12 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
             clap::Error::raw(clap::error::ErrorKind::InvalidValue, error + "\n").exit();
         }
     }
+    if command.debug_gain {
+        println!(
+            "Gain Normalizer RMS level reference: {}",
+            rustpotter.get_rms_level_ref()
+        );
+    }
     println!("Begin recording...");
     let err_fn = move |err| {
         eprintln!("an error occurred on stream: {}", err);
@@ -112,11 +126,13 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
             .build_input_stream(
                 &stream_config,
                 move |data: &[i16], _: &_| {
+                    let detection = rustpotter.process_short_buffer(data);
                     print_detection(
-                        rustpotter.process_short_buffer(data),
-                        rustpotter.get_partial_detection(),
+                        &rustpotter,
+                        detection,
                         &mut partial_detection_counter,
-                        command.verbose,
+                        command.debug,
+                        command.debug_gain,
                     );
                 },
                 err_fn,
@@ -127,11 +143,13 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
             .build_input_stream(
                 &stream_config,
                 move |data: &[i32], _: &_| {
+                    let detection = rustpotter.process_int_buffer(data);
                     print_detection(
-                        rustpotter.process_int_buffer(data),
-                        rustpotter.get_partial_detection(),
+                        &rustpotter,
+                        detection,
                         &mut partial_detection_counter,
-                        command.verbose,
+                        command.debug,
+                        command.debug_gain,
                     );
                 },
                 err_fn,
@@ -142,11 +160,13 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
             .build_input_stream(
                 &stream_config,
                 move |data: &[f32], _: &_| {
+                    let detection = rustpotter.process_float_buffer(data);
                     print_detection(
-                        rustpotter.process_float_buffer(data),
-                        rustpotter.get_partial_detection(),
+                        &rustpotter,
+                        detection,
                         &mut partial_detection_counter,
-                        command.verbose,
+                        command.debug,
+                        command.debug_gain,
                     );
                 },
                 err_fn,
@@ -167,47 +187,52 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
 }
 
 pub(crate) fn print_detection(
+    rustpotter: &Rustpotter,
     detection: Option<RustpotterDetection>,
-    partial_detection: Option<&RustpotterDetection>,
     partial_detection_counter: &mut usize,
-    verbose: bool,
+    debug: bool,
+    debug_gain: bool,
 ) {
+    if debug_gain {
+        println!(
+            "Frame volume info: RMS={}, Gain={}",
+            rustpotter.get_rms_level(),
+            rustpotter.get_gain()
+        )
+    }
     let dt: OffsetDateTime = SystemTime::now().into();
-    match detection {
+    let partial_detection = rustpotter.get_partial_detection();
+    *partial_detection_counter = match detection {
         Some(detection) => {
-            *partial_detection_counter = 0;
             println!(
-                "Wakeword detection: {:02}:{:02}:{:02}\n{:?}",
+                "Wakeword detection: [{:02}:{:02}:{:02}] {:?}",
                 dt.hour(),
                 dt.minute(),
                 dt.second(),
                 detection
             );
+            0
         }
-        None => {
-            if verbose {
-                *partial_detection_counter = partial_detection.map_or_else(
-                    || {
-                        if *partial_detection_counter > 0 {
-                            println!("Partial detection discarded");
-                        }
-                        0
-                    },
-                    |detection| {
-                        if *partial_detection_counter < detection.counter {
-                            println!(
-                                "Partial detection: {:02}:{:02}:{:02}\n{:?}",
-                                dt.hour(),
-                                dt.minute(),
-                                dt.second(),
-                                detection
-                            );
-                        }
-                        detection.counter
-                    },
-                );
-            }
-        }
+        None => partial_detection.map_or_else(
+            || {
+                if debug && *partial_detection_counter > 0 {
+                    println!("Partial detection discarded");
+                }
+                0
+            },
+            |detection| {
+                if debug && *partial_detection_counter < detection.counter {
+                    println!(
+                        "Partial detected: [{:02}:{:02}:{:02}] {:?}",
+                        dt.hour(),
+                        dt.minute(),
+                        dt.second(),
+                        detection
+                    );
+                }
+                detection.counter
+            },
+        ),
     };
 }
 

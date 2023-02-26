@@ -12,7 +12,7 @@ pub struct RecordCommand {
     #[clap()]
     /// Generated record path
     output_path: String,
-    #[clap(short, long)]
+    #[clap(short = 'i', long)]
     /// Input device index used for record
     device_index: Option<usize>,
     #[clap(short, long)]

@@ -26,6 +26,13 @@ pub struct TestModelCommand {
     min_scores: usize,
     #[clap(short = 's', long, default_value_t = ClapScoreMode::Max)]
     score_mode: ClapScoreMode,
+    #[clap(short = 'g', long)]
+    /// Enables a gain-normalizer audio filter.
+    gain_normalizer: bool,
+    #[clap(short, long)]
+    /// Set the rms level reference used by the gain normalizer filter.
+    /// If unset the max wakeword rms level is used.
+    rms_level_ref: Option<f32>,
     #[clap(short = 'b', long)]
     /// Enables a band-pass audio filter.
     band_pass: bool,
@@ -35,12 +42,12 @@ pub struct TestModelCommand {
     #[clap(long, default_value_t = 400.)]
     /// Band-pass audio filter high cutoff.
     high_cutoff: f32,
-    #[clap(short = 'g', long)]
-    /// Enables a gain-normalizer audio filter.
-    gain_normalizer: bool,
     #[clap(short, long)]
-    /// Enables rustpotter debug log
-    verbose: bool,
+    /// Log partial detections.
+    debug: bool,
+    #[clap(long)]
+    /// Log rms level ref, gain applied per frame and frame rms level.
+    debug_gain: bool,
 }
 pub fn test(command: TestModelCommand) -> Result<(), String> {
     println!(
@@ -48,7 +55,8 @@ pub fn test(command: TestModelCommand) -> Result<(), String> {
         command.sample_path, command.model_path,
     );
     // Read wav file
-    let file_reader = BufReader::new(File::open(command.sample_path).map_err(|err| err.to_string())?);
+    let file_reader =
+        BufReader::new(File::open(command.sample_path).map_err(|err| err.to_string())?);
     let mut wav_reader = WavReader::new(file_reader).map_err(|err| err.to_string())?;
     let wav_specs = wav_reader.spec();
     let mut config = RustpotterConfig::default();
@@ -59,10 +67,11 @@ pub fn test(command: TestModelCommand) -> Result<(), String> {
     config.detector.threshold = command.threshold;
     config.detector.min_scores = command.min_scores;
     config.detector.score_mode = command.score_mode.into();
-    config.filters.gain_normalizer = command.gain_normalizer;
-    config.filters.band_pass = command.band_pass;
-    config.filters.low_cutoff = command.low_cutoff;
-    config.filters.high_cutoff = command.high_cutoff;
+    config.filters.gain_normalizer.enabled = command.gain_normalizer;
+    config.filters.gain_normalizer.rms_level_ref = command.rms_level_ref;
+    config.filters.band_pass.enabled = command.band_pass;
+    config.filters.band_pass.low_cutoff = command.low_cutoff;
+    config.filters.band_pass.high_cutoff = command.high_cutoff;
     let mut rustpotter = Rustpotter::new(&config)?;
     if let Err(error) = rustpotter.add_wakeword_from_file(&command.model_path) {
         clap::Error::raw(
@@ -82,11 +91,13 @@ pub fn test(command: TestModelCommand) -> Result<(), String> {
             buffer
                 .chunks_exact(rustpotter.get_samples_per_frame())
                 .for_each(|chunk| {
+                    let detection = rustpotter.process_int_buffer(chunk);
                     print_detection(
-                        rustpotter.process_int_buffer(chunk),
-                        rustpotter.get_partial_detection(),
+                        &rustpotter,
+                        detection,
                         &mut partial_detection_counter,
-                        command.verbose,
+                        command.debug,
+                        command.debug_gain,
                     );
                 });
         }
@@ -99,11 +110,13 @@ pub fn test(command: TestModelCommand) -> Result<(), String> {
             buffer
                 .chunks_exact(rustpotter.get_samples_per_frame())
                 .for_each(|chunk| {
+                    let detection = rustpotter.process_float_buffer(chunk);
                     print_detection(
-                        rustpotter.process_float_buffer(chunk),
-                        rustpotter.get_partial_detection(),
+                        &rustpotter,
+                        detection,
                         &mut partial_detection_counter,
-                        command.verbose,
+                        command.debug,
+                        command.debug_gain,
                     );
                 });
         }
