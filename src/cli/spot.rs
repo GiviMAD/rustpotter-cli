@@ -33,11 +33,17 @@ pub struct SpotCommand {
     #[clap(short = 'g', long)]
     /// Enables a gain-normalizer audio filter.
     gain_normalizer: bool,
+    #[clap(long, default_value_t = 0.1)]
+    /// Min gain applied by the gain-normalizer filter.
+    min_gain: f32,
+    #[clap(long, default_value_t = 1.)]
+    /// Max gain applied by the gain-normalizer filter. 
+    max_gain: f32,
     #[clap(short, long)]
     /// Set the rms level reference used by the gain normalizer filter.
     /// If unset the max wakeword rms level is used.
     rms_level_ref: Option<f32>,
-    #[clap(short = 'b', long)]
+    #[clap(short, long)]
     /// Enables a band-pass audio filter.
     band_pass: bool,
     #[clap(long, default_value_t = 80.)]
@@ -81,6 +87,8 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
     config.detector.score_mode = command.score_mode.into();
     config.filters.gain_normalizer.enabled = command.gain_normalizer;
     config.filters.gain_normalizer.rms_level_ref = command.rms_level_ref;
+    config.filters.gain_normalizer.min_gain = command.min_gain;
+    config.filters.gain_normalizer.max_gain = command.max_gain;
     config.filters.band_pass.enabled = command.band_pass;
     config.filters.band_pass.low_cutoff = command.low_cutoff;
     config.filters.band_pass.high_cutoff = command.high_cutoff;
@@ -126,7 +134,7 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
             .build_input_stream(
                 &stream_config,
                 move |data: &[i16], _: &_| {
-                    let detection = rustpotter.process_short_buffer(data);
+                    let detection = rustpotter.process_i16(data);
                     print_detection(
                         &rustpotter,
                         detection,
@@ -143,7 +151,7 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
             .build_input_stream(
                 &stream_config,
                 move |data: &[i32], _: &_| {
-                    let detection = rustpotter.process_int_buffer(data);
+                    let detection = rustpotter.process_i32(data);
                     print_detection(
                         &rustpotter,
                         detection,
@@ -160,7 +168,7 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
             .build_input_stream(
                 &stream_config,
                 move |data: &[f32], _: &_| {
-                    let detection = rustpotter.process_float_buffer(data);
+                    let detection = rustpotter.process_f32(data);
                     print_detection(
                         &rustpotter,
                         detection,
