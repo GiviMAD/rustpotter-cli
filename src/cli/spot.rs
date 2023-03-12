@@ -42,7 +42,7 @@ pub struct SpotCommand {
     #[clap(short, long)]
     /// Set the rms level reference used by the gain normalizer filter.
     /// If unset the max wakeword rms level is used.
-    rms_level_ref: Option<f32>,
+    gain_ref: Option<f32>,
     #[clap(short, long)]
     /// Enables a band-pass audio filter.
     band_pass: bool,
@@ -86,7 +86,7 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
     config.detector.min_scores = command.min_scores;
     config.detector.score_mode = command.score_mode.into();
     config.filters.gain_normalizer.enabled = command.gain_normalizer;
-    config.filters.gain_normalizer.rms_level_ref = command.rms_level_ref;
+    config.filters.gain_normalizer.gain_ref = command.gain_ref;
     config.filters.gain_normalizer.min_gain = command.min_gain;
     config.filters.gain_normalizer.max_gain = command.max_gain;
     config.filters.band_pass.enabled = command.band_pass;

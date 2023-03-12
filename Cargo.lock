@@ -831,9 +831,9 @@ dependencies = [
 
 [[package]]
 name = "rustpotter"
-version = "2.0.0-beta.2"
+version = "2.0.0-beta.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6da92b10b3864e1e8e78f0bab892a03943601b3e26519d0a43e611ae27fa954e"
+checksum = "9eb11d93023d379595800e98413c303ad89bb9f8816ed7b7ad8c7bd953e08be0"
 dependencies = [
  "ciborium",
  "hound",
@@ -844,7 +844,7 @@ dependencies = [
 
 [[package]]
 name = "rustpotter-cli"
-version = "2.0.0-beta.2"
+version = "2.0.0-beta.3"
 dependencies = [
  "clap",
  "cpal",
