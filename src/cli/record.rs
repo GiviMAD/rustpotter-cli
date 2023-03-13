@@ -6,7 +6,7 @@ use clap::Args;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{FromSample, Sample};
 #[derive(Args, Debug)]
-/// Record wav audio with spec 16000hz 16bit 1 channel int. Press "Ctrl + c" to stop and save.
+/// Record wav audio
 #[clap()]
 pub struct RecordCommand {
     #[clap()]

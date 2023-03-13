@@ -22,15 +22,15 @@ struct CLI {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Record audio sample
+    /// Record wav audio file
     Record(RecordCommand),
-    /// Build wakeword model
+    /// Build wakeword model from wav audio files
     BuildModel(BuildModelCommand),
-    /// Test model accuracy against a sample  
+    /// Test model accuracy against a wav file  
     TestModel(TestModelCommand),
-    /// Spot wakeword using model
+    /// Spot wakewords in real time
     Spot(SpotCommand),
-    /// List audio devices
+    /// List audio devices and configurations
     Devices(DevicesCommand),
 }
 
