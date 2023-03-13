@@ -18,6 +18,9 @@ pub struct RecordCommand {
     #[clap(short, long)]
     /// Input device index used for record
     config_index: Option<usize>,
+    #[clap(short, long, default_value_t = 1.)]
+    /// Adjust the recording volume. value > 1.0 amplifies, value < 1.0 attenuates
+    gain: f32,
 }
 pub fn record(command: RecordCommand) -> Result<(), String> {
     //get the host
@@ -48,7 +51,7 @@ pub fn record(command: RecordCommand) -> Result<(), String> {
         cpal::SampleFormat::I16 => device
             .build_input_stream(
                 &config.into(),
-                move |data, _: &_| write_input_data::<i16, i16>(data, &writer_2),
+                move |data, _: &_| write_input_data::<i16, i16>(data, &writer_2, command.gain),
                 err_fn,
                 None,
             )
@@ -56,7 +59,7 @@ pub fn record(command: RecordCommand) -> Result<(), String> {
         cpal::SampleFormat::I32 => device
             .build_input_stream(
                 &config.into(),
-                move |data, _: &_| write_input_data::<i32, i32>(data, &writer_2),
+                move |data, _: &_| write_input_data::<i32, i32>(data, &writer_2, command.gain),
                 err_fn,
                 None,
             )
@@ -64,7 +67,7 @@ pub fn record(command: RecordCommand) -> Result<(), String> {
         cpal::SampleFormat::F32 => device
             .build_input_stream(
                 &config.into(),
-                move |data, _: &_| write_input_data::<f32, f32>(data, &writer_2),
+                move |data, _: &_| write_input_data::<f32, f32>(data, &writer_2, command.gain),
                 err_fn,
                 None,
             )
@@ -89,18 +92,19 @@ pub fn record(command: RecordCommand) -> Result<(), String> {
     Ok(())
 }
 
-
 fn write_input_data<T, U>(
     input: &[T],
     writer: &Arc<Mutex<Option<hound::WavWriter<BufWriter<File>>>>>,
+    gain: f32,
 ) where
     T: Sample,
     U: Sample + hound::Sample + FromSample<T>,
 {
     if let Ok(mut guard) = writer.try_lock() {
         if let Some(writer) = guard.as_mut() {
+            let gain_sample = Sample::from_sample(gain);
             for &sample in input.iter() {
-                let sample: U = U::from_sample(sample);
+                let sample: U = U::from_sample(sample.mul_amp(gain_sample));
                 writer.write_sample(sample).ok();
             }
         }
