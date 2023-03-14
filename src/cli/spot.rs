@@ -37,7 +37,7 @@ pub struct SpotCommand {
     /// Min gain applied by the gain-normalizer filter.
     min_gain: f32,
     #[clap(long, default_value_t = 1.)]
-    /// Max gain applied by the gain-normalizer filter. 
+    /// Max gain applied by the gain-normalizer filter.
     max_gain: f32,
     #[clap(short, long)]
     /// Set the rms level reference used by the gain normalizer filter.
@@ -249,6 +249,12 @@ pub(crate) enum ClapScoreMode {
     Max,
     Avg,
     Median,
+    P25,
+    P50,
+    P75,
+    P80,
+    P90,
+    P95,
 }
 impl std::fmt::Display for ClapScoreMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -256,6 +262,12 @@ impl std::fmt::Display for ClapScoreMode {
             ClapScoreMode::Avg => write!(f, "avg"),
             ClapScoreMode::Max => write!(f, "max"),
             ClapScoreMode::Median => write!(f, "median"),
+            ClapScoreMode::P25 => write!(f, "p25"),
+            ClapScoreMode::P50 => write!(f, "p50"),
+            ClapScoreMode::P75 => write!(f, "p75"),
+            ClapScoreMode::P80 => write!(f, "p80"),
+            ClapScoreMode::P90 => write!(f, "p90"),
+            ClapScoreMode::P95 => write!(f, "p95"),
         }
     }
 }
@@ -265,6 +277,12 @@ impl From<ClapScoreMode> for ScoreMode {
             ClapScoreMode::Avg => ScoreMode::Average,
             ClapScoreMode::Max => ScoreMode::Max,
             ClapScoreMode::Median => ScoreMode::Median,
+            ClapScoreMode::P25 => ScoreMode::P25,
+            ClapScoreMode::P50 => ScoreMode::P50,
+            ClapScoreMode::P75 => ScoreMode::P75,
+            ClapScoreMode::P80 => ScoreMode::P80,
+            ClapScoreMode::P90 => ScoreMode::P90,
+            ClapScoreMode::P95 => ScoreMode::P95,
         }
     }
 }
