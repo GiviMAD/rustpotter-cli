@@ -83,7 +83,7 @@ jobs:
         shell: powershell
       - name: build binary
         run: |
-          cargo build --release --features dist
+          cargo build --release
           ls target/release/
           mkdir output
           cp target/release/rustpotter-cli.exe output/rustpotter-cli_win_x86_64.exe
@@ -105,11 +105,11 @@ jobs:
       - name: build binary
         run: |
           export DYLD_LIBRARY_PATH=/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/
-          cargo build --release --features dist
+          cargo build --release
           mkdir output
           cp target/release/rustpotter-cli output/rustpotter-cli_macos_x86_64
           rustup target add aarch64-apple-darwin
-          cargo build --target aarch64-apple-darwin --release --features dist
+          cargo build --target aarch64-apple-darwin --release
           cp target/aarch64-apple-darwin/release/rustpotter-cli output/rustpotter-cli_macos_aarch64
       - name: artifact macos x86_64
         uses: actions/upload-artifact@v3
