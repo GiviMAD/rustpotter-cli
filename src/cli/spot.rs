@@ -29,6 +29,7 @@ pub struct SpotCommand {
     /// Minimum number of partial detections
     min_scores: usize,
     #[clap(short = 's', long, default_value_t = ClapScoreMode::Max)]
+    /// How to calculate a unified score
     score_mode: ClapScoreMode,
     #[clap(short = 'g', long)]
     /// Enables a gain-normalizer audio filter.
