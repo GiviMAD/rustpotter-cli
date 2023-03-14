@@ -1,37 +1,40 @@
 use clap::{Parser, Subcommand};
-mod record;
 mod build_model;
-mod test_model;
-mod spot;
 mod devices;
-use self::{record::{record,RecordCommand}, build_model::{BuildModelCommand, build}, test_model::{test, TestModelCommand}, spot::{spot, SpotCommand}, devices::{devices, DevicesCommand}};
+mod record;
+mod spot;
+mod test_model;
+use self::{
+    build_model::{build, BuildModelCommand},
+    devices::{devices, DevicesCommand},
+    record::{record, RecordCommand},
+    spot::{spot, SpotCommand},
+    test_model::{test, TestModelCommand},
+};
 
 #[derive(Parser, Debug)]
-/// RustPotter: the free personal wakeword spotter written on rust
+/// CLI for RustPotter: an open source wakeword spotter forged in rust
 #[clap(author, version, about, long_about = None, arg_required_else_help = true)]
 struct CLI {
     #[clap(subcommand)]
     command: Option<Commands>,
 }
 
-
 #[derive(Subcommand, Debug)]
-/// Record audio sample
 enum Commands {
-    /// Record audio sample
+    /// Record wav audio file
     Record(RecordCommand),
-    /// Build wakeword model
+    /// Build wakeword model from wav audio files
     BuildModel(BuildModelCommand),
-    /// Test model accuracy against a sample  
+    /// Test model accuracy against a wav file  
     TestModel(TestModelCommand),
-    /// Spot wakeword using model
+    /// Spot wakewords in real time
     Spot(SpotCommand),
-    /// List audio devices
+    /// List audio devices and configurations
     Devices(DevicesCommand),
 }
 
-
-pub fn run_cli() {
+pub(crate) fn run_cli() {
     let cli = CLI::parse();
     match cli.command.unwrap() {
         Commands::Record(command) => record(command),
@@ -39,5 +42,6 @@ pub fn run_cli() {
         Commands::TestModel(command) => test(command),
         Commands::Spot(command) => spot(command),
         Commands::Devices(command) => devices(command),
-    }.expect("Command failed");
+    }
+    .expect("Command failed");
 }
