@@ -53,6 +53,12 @@ pub struct SpotCommand {
     #[clap(long, default_value_t = 400.)]
     /// Band-pass audio filter high cutoff.
     high_cutoff: f32,
+    #[clap(long, default_value_t = 5)]
+    /// Band size of the comparison. (Advanced)
+    comparator_band_size: u16,
+    #[clap(long, default_value_t = 0.22)]
+    /// Used to express the result as a probability. (Advanced)
+    comparator_ref: f32,
     #[clap(short, long)]
     /// Log partial detections.
     debug: bool,
@@ -86,6 +92,8 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
     config.detector.threshold = command.threshold;
     config.detector.min_scores = command.min_scores;
     config.detector.score_mode = command.score_mode.into();
+    config.detector.comparator_band_size = command.comparator_band_size;
+    config.detector.comparator_ref = command.comparator_ref;
     config.filters.gain_normalizer.enabled = command.gain_normalizer;
     config.filters.gain_normalizer.gain_ref = command.gain_ref;
     config.filters.gain_normalizer.min_gain = command.min_gain;
