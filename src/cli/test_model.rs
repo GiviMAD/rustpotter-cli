@@ -36,7 +36,7 @@ pub struct TestModelCommand {
     #[clap(long, default_value_t = 1.)]
     /// Max gain applied by the gain-normalizer filter.
     max_gain: f32,
-    #[clap(short, long)]
+    #[clap(long)]
     /// Set the rms level reference used by the gain normalizer filter.
     /// If unset the max wakeword rms level is used.
     gain_ref: Option<f32>,
