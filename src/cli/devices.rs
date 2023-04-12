@@ -1,11 +1,15 @@
 extern crate cpal;
 use clap::Args;
 use cpal::traits::{DeviceTrait, HostTrait};
-/// Record audio sample
+/// List audio device configs
 #[derive(Args, Debug)]
 #[clap()]
-pub struct DevicesCommand {}
-pub fn devices(_: DevicesCommand) -> Result<(), String> {
+pub struct DevicesCommand {
+    #[clap(long)]
+    /// Filter device configs by max channel number
+    max_channels: Option<u16>,
+}
+pub fn devices(command: DevicesCommand) -> Result<(), String> {
     println!("Supported hosts:\n  {:?}", cpal::ALL_HOSTS);
     let default_host = cpal::default_host();
     let host_id = default_host.id();
@@ -41,7 +45,9 @@ pub fn devices(_: DevicesCommand) -> Result<(), String> {
         if !input_configs.is_empty() {
             println!("    All supported input stream configs:");
             for (config_index, config) in input_configs.into_iter().enumerate() {
-                println!("      {} - {:?}", config_index, config);
+                if command.max_channels.is_none() || config.channels() <= command.max_channels.unwrap() {
+                    println!("      {} - {:?}", config_index, config);
+                }
             }
         }
     }

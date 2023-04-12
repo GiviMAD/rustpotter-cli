@@ -71,6 +71,10 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
     println!("Spotting using models: {:?}!", command.model_path);
     // select input device and config
     let host = cpal::default_host();
+    let host_name = host.id().name();
+    if command.debug {
+        println!("Audio backend: {}", host_name);
+    }
     let device = record::get_device(command.device_index, host);
     println!(
         "Input device: {}",
@@ -105,9 +109,16 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
         println!("Rustpotter config:\n{:?}", config);
     }
     let mut rustpotter = Rustpotter::new(&config)?;
+    
+    let required_buffer_size = if host_name == "ALSA" {
+        // force even buffer size to workaround issue mentioned here https://github.com/RustAudio/cpal/pull/582#pullrequestreview-1095655011
+        rustpotter.get_samples_per_frame() as u32 * 2
+    } else {
+        rustpotter.get_samples_per_frame() as u32
+    };
     if !is_compatible_buffer_size(
         &device_config.buffer_size(),
-        rustpotter.get_samples_per_frame() as u32,
+        required_buffer_size,
     ) {
         clap::Error::raw(
             clap::error::ErrorKind::Io,
@@ -135,22 +146,32 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
     let stream_config = cpal::StreamConfig {
         channels: device_config.channels(),
         sample_rate: device_config.sample_rate(),
-        buffer_size: cpal::BufferSize::Fixed(rustpotter.get_samples_per_frame() as u32),
+        buffer_size: cpal::BufferSize::Fixed(required_buffer_size),
     };
+    if command.debug {
+        println!("Audio stream config: {:?}", stream_config);
+    }
     let mut partial_detection_counter = 0;
+    let mut buffer_i16: Vec<i16> = Vec::new();
+    let mut buffer_i32: Vec<i32> = Vec::new();
+    let mut buffer_f32: Vec<f32> = Vec::new();
+    let rustpotter_samples_per_frame = rustpotter.get_samples_per_frame();
     let stream = match device_config.sample_format() {
         cpal::SampleFormat::I16 => device
             .build_input_stream(
                 &stream_config,
                 move |data: &[i16], _: &_| {
-                    let detection = rustpotter.process_i16(data);
-                    print_detection(
-                        &rustpotter,
-                        detection,
-                        &mut partial_detection_counter,
-                        command.debug,
-                        command.debug_gain,
-                    );
+                    buffer_i16.extend_from_slice(data);
+                    while buffer_i16.len() >= rustpotter_samples_per_frame {
+                        let detection = rustpotter.process_i16(buffer_i16.drain(0..rustpotter_samples_per_frame).as_slice());
+                        print_detection(
+                            &rustpotter,
+                            detection,
+                            &mut partial_detection_counter,
+                            command.debug,
+                            command.debug_gain,
+                        );
+                    }
                 },
                 err_fn,
                 None,
@@ -160,14 +181,17 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
             .build_input_stream(
                 &stream_config,
                 move |data: &[i32], _: &_| {
-                    let detection = rustpotter.process_i32(data);
-                    print_detection(
-                        &rustpotter,
-                        detection,
-                        &mut partial_detection_counter,
-                        command.debug,
-                        command.debug_gain,
-                    );
+                    buffer_i32.extend_from_slice(data);
+                    while buffer_i32.len() >= rustpotter_samples_per_frame {
+                        let detection = rustpotter.process_i32(&buffer_i32.drain(0..rustpotter_samples_per_frame).as_slice());
+                        print_detection(
+                            &rustpotter,
+                            detection,
+                            &mut partial_detection_counter,
+                            command.debug,
+                            command.debug_gain,
+                        );
+                    }
                 },
                 err_fn,
                 None,
@@ -177,14 +201,17 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
             .build_input_stream(
                 &stream_config,
                 move |data: &[f32], _: &_| {
-                    let detection = rustpotter.process_f32(data);
-                    print_detection(
-                        &rustpotter,
-                        detection,
-                        &mut partial_detection_counter,
-                        command.debug,
-                        command.debug_gain,
-                    );
+                    buffer_f32.extend_from_slice(data);
+                    while buffer_f32.len() >= rustpotter_samples_per_frame {
+                        let detection = rustpotter.process_f32(buffer_f32.drain(0..rustpotter_samples_per_frame).as_slice());
+                        print_detection(
+                            &rustpotter,
+                            detection,
+                            &mut partial_detection_counter,
+                            command.debug,
+                            command.debug_gain,
+                        );
+                    }
                 },
                 err_fn,
                 None,
