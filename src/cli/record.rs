@@ -10,13 +10,13 @@ use cpal::{FromSample, Sample};
 #[clap()]
 pub struct RecordCommand {
     #[clap()]
-    /// Generated record path
+    /// Generated record path.
     output_path: String,
     #[clap(short = 'i', long)]
-    /// Input device index used for record
+    /// Input device index used for record.
     device_index: Option<usize>,
     #[clap(short, long)]
-    /// Input device index used for record
+    /// Input device configuration index used for record.
     config_index: Option<usize>,
     #[clap(short, long, default_value_t = 1.)]
     /// Adjust the recording volume. value > 1.0 amplifies, value < 1.0 attenuates

@@ -1,6 +1,6 @@
 [package]
 name = "rustpotter-cli"
-version = "2.0.2"
+version = "2.0.3"
 edition = "2021"
 license = "Apache-2.0"
 description = "CLI for Rustpotter, an open source wakeword spotter forged in rust."
