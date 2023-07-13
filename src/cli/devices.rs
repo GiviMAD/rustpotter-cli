@@ -6,11 +6,16 @@ use cpal::traits::{DeviceTrait, HostTrait};
 #[clap()]
 pub struct DevicesCommand {
     #[clap(long)]
+    /// Display available record formats by device
+    configs: bool,
+    #[clap(long)]
     /// Filter device configs by max channel number
     max_channels: Option<u16>,
+    #[clap(long)]
+    /// Display default device format
+    default_config: bool,
 }
 pub fn devices(command: DevicesCommand) -> Result<(), String> {
-    println!("Supported hosts:\n  {:?}", cpal::ALL_HOSTS);
     let default_host = cpal::default_host();
     let host_id = default_host.id();
     println!("Using hosts:\n  {:?}", default_host.id());
@@ -32,8 +37,10 @@ pub fn devices(command: DevicesCommand) -> Result<(), String> {
         );
 
         // Input configs
-        if let Ok(conf) = device.default_input_config() {
-            println!("    Default input stream config:\n      {:?}", conf);
+        if command.default_config {
+            if let Ok(conf) = device.default_input_config() {
+                println!("    Default input stream config:\n      {:?}", conf);
+            }
         }
         let input_configs = match device.supported_input_configs() {
             Ok(f) => f.collect(),
@@ -42,7 +49,7 @@ pub fn devices(command: DevicesCommand) -> Result<(), String> {
                 Vec::new()
             }
         };
-        if !input_configs.is_empty() {
+        if !input_configs.is_empty() && command.configs {
             println!("    All supported input stream configs:");
             for (config_index, config) in input_configs.into_iter().enumerate() {
                 if command.max_channels.is_none() || config.channels() <= command.max_channels.unwrap() {
