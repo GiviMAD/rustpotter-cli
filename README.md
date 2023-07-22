@@ -20,15 +20,15 @@ For instance on debian it can be installed like:
 
 ```bash
 # This command print your arch, just in case you don't remember it.
-uname -m
+$ uname -m
 # Here I used the armv7l binary
-curl -OL https://github.com/GiviMAD/rustpotter-cli/releases/download/v2.0.4/rustpotter-cli_debian_armv7l
+$ curl -OL https://github.com/GiviMAD/rustpotter-cli/releases/download/v2.0.5/rustpotter-cli_debian_armv7l
 # Make executable
-chmod +x rustpotter-cli_debian_armv7l
+$ chmod +x rustpotter-cli_debian_armv7l
 # Check simple execution
-./rustpotter-cli_debian_armv7l --version
-# Rename it to ruspotter-cli and move it to a location on your PATH.
-sudo mv ./rustpotter-cli_debian_armv7l /usr/local/bin/rustpotter-cli
+$ ./rustpotter-cli_debian_armv7l --version
+# Make available as ruspotter-cli
+$ sudo mv ./rustpotter-cli_debian_armv7l /usr/local/bin/rustpotter-cli
 ```
 
 # How to used it.
@@ -38,6 +38,8 @@ sudo mv ./rustpotter-cli_debian_armv7l /usr/local/bin/rustpotter-cli
 Your can list the available audio sources with the `devices` command,
 the `--configs` option can be added to display the default and available record formats for each source.
 
+Host warnings are hidden by default, you can enable them by providing the `--host-warnings` option.
+
 Every device and config has a numerical id to the left which is the one you can use on the other commands (`record` and `spot`)
 to change its audio source and format.
 
@@ -46,7 +48,7 @@ In some systems to many configurations are displayed you can filter them by max 
 This is an example run on macOS:
 
 ```bash
-$ rustpotter-cli devices -c
+$ rustpotter-cli devices -c -m 1
 Audio hosts:
   - CoreAudio
 Default input device:
@@ -54,12 +56,12 @@ Default input device:
 Available Devices: 
 0 - MacBook Pro Microphone
   Default input stream config:
-      - Sample Rate: 48000, Channels: 1, Format: f32
+      - Sample Rate: 48000, Channels: 1, Format: f32, Supported: true
   All supported input stream configs:
-    0 - Sample Rate: 44100, Channels: 1, Format: f32
-    1 - Sample Rate: 48000, Channels: 1, Format: f32
-    2 - Sample Rate: 88200, Channels: 1, Format: f32
-    3 - Sample Rate: 96000, Channels: 1, Format: f32
+    0 - Sample Rate: 44100, Channels: 1, Format: f32, Supported: true
+    1 - Sample Rate: 48000, Channels: 1, Format: f32, Supported: true
+    2 - Sample Rate: 88200, Channels: 1, Format: f32, Supported: true
+    3 - Sample Rate: 96000, Channels: 1, Format: f32, Supported: true
 ```
 
 ## Recording audio samples
@@ -74,7 +76,7 @@ This is an example run on macOS:
 ```bash
 $ rustpotter-cli record good_morning.wav
 Input device: MacBook Pro Microphone
-Input device config: SupportedStreamConfig { channels: 1, sample_rate: SampleRate(48000), buffer_size: Range { min: 15, max: 4096 }, sample_format: F32 }
+Input device config: Sample Rate: 48000, Channels: 1, Format: f32
 Begin recording...
 Press 'Ctrl + c' to stop.
 ^CRecording good_morning.wav complete!

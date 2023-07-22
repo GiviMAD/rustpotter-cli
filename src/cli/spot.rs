@@ -3,6 +3,7 @@ use std::{sync::mpsc, time::SystemTime};
 use crate::cli::record::{self, is_compatible_buffer_size};
 use clap::Args;
 use cpal::traits::{DeviceTrait, StreamTrait};
+use gag::Gag;
 use rustpotter::{Rustpotter, RustpotterConfig, RustpotterDetection, ScoreMode};
 use time::OffsetDateTime;
 
@@ -19,6 +20,12 @@ pub struct SpotCommand {
     #[clap(short, long)]
     /// Input device config index used for record.
     config_index: Option<usize>,
+    #[clap(short='w', long)]
+    /// Display host warnings
+    host_warnings: bool,
+    #[clap(long, default_value_t = 16000)]
+    /// Preferred sample rate, if not available for the selected config min sample rate is used.
+    sample_rate: u32,
     #[clap(long)]
     /// Set the stream buffer size to a near value to the rustpotter buffer size.
     custom_buffer_size: bool,
@@ -74,6 +81,10 @@ pub struct SpotCommand {
 }
 
 pub fn spot(command: SpotCommand) -> Result<(), String> {
+    let stderr_gag = Gag::stderr().unwrap();
+    if command.host_warnings {
+        drop(stderr_gag);
+    }
     println!("Spotting using models: {:?}!", command.model_path);
     // select input device and config
     let host = cpal::default_host();
@@ -86,8 +97,8 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
         "Input device: {}",
         device.name().map_err(|err| err.to_string())?
     );
-    let device_config = record::get_config(command.config_index, &device);
-    println!("Input device config: {:?}", device_config);
+    let device_config = record::get_config(command.config_index, &device, command.sample_rate);
+    println!("Input device config: Sample Rate: {}, Channels: {}, Format: {}", device_config.sample_rate().0, device_config.channels(), device_config.sample_format());
     // configure rustpotter
     let mut config = RustpotterConfig::default();
     config.fmt.sample_rate = device_config.sample_rate().0 as _;

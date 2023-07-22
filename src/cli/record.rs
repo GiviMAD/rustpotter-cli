@@ -4,7 +4,8 @@ use std::sync::{mpsc, Arc, Mutex};
 
 use clap::Args;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{FromSample, Sample};
+use cpal::{FromSample, Sample, SampleRate};
+use gag::Gag;
 #[derive(Args, Debug)]
 /// Record wav audio
 #[clap()]
@@ -18,11 +19,21 @@ pub struct RecordCommand {
     #[clap(short, long)]
     /// Input device configuration index used for record.
     config_index: Option<usize>,
+    #[clap(short='w', long)]
+    /// Display host warnings
+    host_warnings: bool,
+    #[clap(long, default_value_t = 16000)]
+    /// Preferred sample rate, if not available for the selected config min sample rate is used.
+    sample_rate: u32,
     #[clap(short, long, default_value_t = 1.)]
     /// Adjust the recording volume. value > 1.0 amplifies, value < 1.0 attenuates
     gain: f32,
 }
 pub fn record(command: RecordCommand) -> Result<(), String> {
+    let stderr_gag = Gag::stderr().unwrap();
+    if command.host_warnings {
+        drop(stderr_gag);
+    }
     //get the host
     let host = cpal::default_host();
 
@@ -35,9 +46,9 @@ pub fn record(command: RecordCommand) -> Result<(), String> {
         "Input device: {}",
         device.name().map_err(|err| err.to_string())?
     );
-    let config = get_config(command.config_index, &device);
-    println!("Input device config: {:?}", config);
-    let spec = wav_spec_from_config(&config);
+    let device_config = get_config(command.config_index, &device, command.sample_rate);
+    println!("Input device config: Sample Rate: {}, Channels: {}, Format: {}", device_config.sample_rate().0, device_config.channels(), device_config.sample_format());
+    let spec = wav_spec_from_config(&device_config);
     let writer = hound::WavWriter::create(command.output_path.to_string(), spec).unwrap();
     let writer = Arc::new(Mutex::new(Some(writer)));
     println!("Begin recording...");
@@ -47,10 +58,10 @@ pub fn record(command: RecordCommand) -> Result<(), String> {
         eprintln!("an error occurred on stream: {}", err);
     };
     let err_cb = move |err: cpal::BuildStreamError| err.to_string();
-    let stream = match config.sample_format() {
+    let stream = match device_config.sample_format() {
         cpal::SampleFormat::I16 => device
             .build_input_stream(
-                &config.into(),
+                &device_config.into(),
                 move |data, _: &_| write_input_data::<i16, i16>(data, &writer_2, command.gain),
                 err_fn,
                 None,
@@ -58,7 +69,7 @@ pub fn record(command: RecordCommand) -> Result<(), String> {
             .map_err(err_cb)?,
         cpal::SampleFormat::I32 => device
             .build_input_stream(
-                &config.into(),
+                &device_config.into(),
                 move |data, _: &_| write_input_data::<i32, i32>(data, &writer_2, command.gain),
                 err_fn,
                 None,
@@ -66,7 +77,7 @@ pub fn record(command: RecordCommand) -> Result<(), String> {
             .map_err(err_cb)?,
         cpal::SampleFormat::F32 => device
             .build_input_stream(
-                &config.into(),
+                &device_config.into(),
                 move |data, _: &_| write_input_data::<f32, f32>(data, &writer_2, command.gain),
                 err_fn,
                 None,
@@ -148,6 +159,7 @@ pub(crate) fn is_compatible_buffer_size(
 pub(crate) fn get_config(
     config_index: Option<usize>,
     device: &cpal::Device,
+    preferred_sample_rate: u32,
 ) -> cpal::SupportedStreamConfig {
     config_index.map_or_else(
         || {
@@ -162,7 +174,7 @@ pub(crate) fn get_config(
                     .supported_input_configs()
                     .expect("Failed to list input configs")
                     .find(|sc| is_compatible_format(&sc.sample_format()))
-                    .map(|sc| sc.with_max_sample_rate())
+                    .map(|sc| try_get_config_with_sample_rate(sc, preferred_sample_rate))
                     .expect("Failed to get default input config")
             }
         },
@@ -173,7 +185,7 @@ pub(crate) fn get_config(
                 .enumerate()
                 .find_map(|(i, d)| {
                     if i == config_index && is_compatible_format(&d.sample_format()) {
-                        Some(d.with_max_sample_rate())
+                        Some(try_get_config_with_sample_rate(d, preferred_sample_rate))
                     } else {
                         None
                     }
@@ -181,6 +193,19 @@ pub(crate) fn get_config(
                 .expect("Unavailable or incompatible configuration selected")
         },
     )
+}
+
+fn try_get_config_with_sample_rate(
+    sc: cpal::SupportedStreamConfigRange,
+    preferred_sample_rate: u32,
+) -> cpal::SupportedStreamConfig {
+    if sc.min_sample_rate().0 <= preferred_sample_rate
+        && preferred_sample_rate <= sc.max_sample_rate().0
+    {
+        sc.with_sample_rate(SampleRate(preferred_sample_rate))
+    } else {
+        sc.with_max_sample_rate()
+    }
 }
 
 pub(crate) fn get_device(device_index: Option<usize>, host: cpal::Host) -> cpal::Device {
