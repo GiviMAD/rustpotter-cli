@@ -20,7 +20,7 @@ pub struct SpotCommand {
     #[clap(short, long)]
     /// Input device config index used for record.
     config_index: Option<usize>,
-    #[clap(short='w', long)]
+    #[clap(short = 'w', long)]
     /// Display host warnings
     host_warnings: bool,
     #[clap(long, default_value_t = 16000)]
@@ -98,7 +98,12 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
         device.name().map_err(|err| err.to_string())?
     );
     let device_config = record::get_config(command.config_index, &device, command.sample_rate);
-    println!("Input device config: Sample Rate: {}, Channels: {}, Format: {}", device_config.sample_rate().0, device_config.channels(), device_config.sample_format());
+    println!(
+        "Input device config: Sample Rate: {}, Channels: {}, Format: {}",
+        device_config.sample_rate().0,
+        device_config.channels(),
+        device_config.sample_format()
+    );
     // configure rustpotter
     let mut config = RustpotterConfig::default();
     config.fmt.sample_rate = device_config.sample_rate().0 as _;
@@ -195,6 +200,7 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
                             &mut partial_detection_counter,
                             command.debug,
                             command.debug_gain,
+                            get_time_string,
                         );
                     }
                 },
@@ -217,6 +223,7 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
                             &mut partial_detection_counter,
                             command.debug,
                             command.debug_gain,
+                            get_time_string,
                         );
                     }
                 },
@@ -239,6 +246,7 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
                             &mut partial_detection_counter,
                             command.debug,
                             command.debug_gain,
+                            get_time_string,
                         );
                     }
                 },
@@ -265,6 +273,7 @@ pub(crate) fn print_detection(
     partial_detection_counter: &mut usize,
     debug: bool,
     debug_gain: bool,
+    time_getter: impl Fn() -> String,
 ) {
     if debug_gain {
         println!(
@@ -273,17 +282,10 @@ pub(crate) fn print_detection(
             rustpotter.get_gain()
         )
     }
-    let dt: OffsetDateTime = SystemTime::now().into();
     let partial_detection = rustpotter.get_partial_detection();
     *partial_detection_counter = match detection {
         Some(detection) => {
-            println!(
-                "Wakeword detection: [{:02}:{:02}:{:02}] {:?}",
-                dt.hour(),
-                dt.minute(),
-                dt.second(),
-                detection
-            );
+            println!("Wakeword detection: [{}] {:?}", time_getter(), detection);
             0
         }
         None => partial_detection.map_or_else(
@@ -295,13 +297,7 @@ pub(crate) fn print_detection(
             },
             |detection| {
                 if debug && *partial_detection_counter < detection.counter {
-                    println!(
-                        "Partial detected: [{:02}:{:02}:{:02}] {:?}",
-                        dt.hour(),
-                        dt.minute(),
-                        dt.second(),
-                        detection
-                    );
+                    println!("Partial detected: [{}] {:?}", time_getter(), detection);
                 }
                 detection.counter
             },
@@ -350,4 +346,8 @@ impl From<ClapScoreMode> for ScoreMode {
             ClapScoreMode::P95 => ScoreMode::P95,
         }
     }
+}
+fn get_time_string() -> String {
+    let dt: OffsetDateTime = SystemTime::now().into();
+    format!("{:02}:{:02}:{:02}", dt.hour(), dt.minute(), dt.second())
 }

@@ -73,7 +73,8 @@ pub fn test(command: TestModelCommand) -> Result<(), String> {
     let mut wav_reader = WavReader::new(file_reader).map_err(|err| err.to_string())?;
     let wav_specs = wav_reader.spec();
     let mut config = RustpotterConfig::default();
-    config.fmt.sample_rate = wav_specs.sample_rate as usize;
+    let sample_rate = wav_specs.sample_rate as usize;
+    config.fmt.sample_rate = sample_rate;
     config.fmt.bits_per_sample = wav_specs.bits_per_sample;
     config.fmt.channels = wav_specs.channels;
     config.detector.avg_threshold = command.averaged_threshold;
@@ -98,16 +99,19 @@ pub fn test(command: TestModelCommand) -> Result<(), String> {
         .exit();
     }
     let mut partial_detection_counter = 0;
+    let mut chunk_counter = 0;
+    let chunk_size = rustpotter.get_samples_per_frame();
     match wav_specs.sample_format {
         SampleFormat::Int => {
             let mut buffer = wav_reader
                 .samples::<i32>()
                 .map(Result::unwrap)
                 .collect::<Vec<_>>();
-            buffer.append(&mut vec![0; rustpotter.get_samples_per_frame() * 100]);
+            buffer.append(&mut vec![0; chunk_size * 100]);
             buffer
-                .chunks_exact(rustpotter.get_samples_per_frame())
+                .chunks_exact(chunk_size)
                 .for_each(|chunk| {
+                    chunk_counter+=1;
                     let detection = rustpotter.process_i32(chunk);
                     print_detection(
                         &rustpotter,
@@ -115,6 +119,7 @@ pub fn test(command: TestModelCommand) -> Result<(), String> {
                         &mut partial_detection_counter,
                         command.debug,
                         command.debug_gain,
+                        || { get_time_string(chunk_counter, chunk_size, sample_rate) },
                     );
                 });
         }
@@ -123,10 +128,11 @@ pub fn test(command: TestModelCommand) -> Result<(), String> {
                 .samples::<f32>()
                 .map(Result::unwrap)
                 .collect::<Vec<_>>();
-            buffer.append(&mut vec![0.; rustpotter.get_samples_per_frame() * 100]);
+            buffer.append(&mut vec![0.; chunk_size * 100]);
             buffer
-                .chunks_exact(rustpotter.get_samples_per_frame())
+                .chunks_exact(chunk_size)
                 .for_each(|chunk| {
+                    chunk_counter+=1;
                     let detection = rustpotter.process_f32(chunk);
                     print_detection(
                         &rustpotter,
@@ -134,9 +140,16 @@ pub fn test(command: TestModelCommand) -> Result<(), String> {
                         &mut partial_detection_counter,
                         command.debug,
                         command.debug_gain,
+                        || { get_time_string(chunk_counter, chunk_size, sample_rate) },
                     );
                 });
         }
     };
     Ok(())
+}
+fn get_time_string(chunk_number: usize, chunk_size: usize, sample_rate: usize) -> String {
+    let total_seconds = (chunk_number * chunk_size) as f32 / sample_rate as f32;
+    let minutes = (total_seconds / 60.).floor() as i32;
+    let seconds = (total_seconds % 60.).floor() as i32;
+    format!("00:{:02}:{:02}", minutes, seconds)
 }
