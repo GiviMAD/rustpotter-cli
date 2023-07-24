@@ -81,9 +81,9 @@ pub struct SpotCommand {
 }
 
 pub fn spot(command: SpotCommand) -> Result<(), String> {
-    let stderr_gag = Gag::stderr().unwrap();
-    if command.host_warnings {
-        drop(stderr_gag);
+    let mut stderr_gag = None;
+    if !command.host_warnings {
+        stderr_gag = Some(Gag::stderr().unwrap());
     }
     println!("Spotting using models: {:?}!", command.model_path);
     // select input device and config
@@ -104,6 +104,10 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
         device_config.channels(),
         device_config.sample_format()
     );
+    // disable gag after device config
+    if stderr_gag.is_some() {
+        drop(stderr_gag.unwrap());
+    }
     // configure rustpotter
     let mut config = RustpotterConfig::default();
     config.fmt.sample_rate = device_config.sample_rate().0 as _;

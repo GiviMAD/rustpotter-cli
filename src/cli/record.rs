@@ -30,9 +30,9 @@ pub struct RecordCommand {
     gain: f32,
 }
 pub fn record(command: RecordCommand) -> Result<(), String> {
-    let stderr_gag = Gag::stderr().unwrap();
-    if command.host_warnings {
-        drop(stderr_gag);
+    let mut stderr_gag = None;
+    if !command.host_warnings {
+        stderr_gag = Some(Gag::stderr().unwrap());
     }
     //get the host
     let host = cpal::default_host();
@@ -48,6 +48,11 @@ pub fn record(command: RecordCommand) -> Result<(), String> {
     );
     let device_config = get_config(command.config_index, &device, command.sample_rate);
     println!("Input device config: Sample Rate: {}, Channels: {}, Format: {}", device_config.sample_rate().0, device_config.channels(), device_config.sample_format());
+    // disable gag after device config
+    if stderr_gag.is_some() {
+        drop(stderr_gag.unwrap());
+    }
+    // Create wav spec
     let spec = wav_spec_from_config(&device_config);
     let writer = hound::WavWriter::create(command.output_path.to_string(), spec).unwrap();
     let writer = Arc::new(Mutex::new(Some(writer)));
