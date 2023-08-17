@@ -4,7 +4,7 @@ use crate::cli::record::{self, is_compatible_buffer_size};
 use clap::Args;
 use cpal::traits::{DeviceTrait, StreamTrait};
 use gag::Gag;
-use rustpotter::{Rustpotter, RustpotterConfig, RustpotterDetection, ScoreMode};
+use rustpotter::{Rustpotter, RustpotterConfig, RustpotterDetection, ScoreMode, SampleType};
 use time::OffsetDateTime;
 
 #[derive(Args, Debug)]
@@ -66,12 +66,9 @@ pub struct SpotCommand {
     #[clap(long, default_value_t = 400.)]
     /// Band-pass audio filter high cutoff.
     high_cutoff: f32,
-    #[clap(long, default_value_t = 5)]
-    /// Band size of the comparison. (Advanced)
-    comparator_band_size: u16,
     #[clap(long, default_value_t = 0.22)]
     /// Used to express the result as a probability. (Advanced)
-    comparator_ref: f32,
+    score_ref: f32,
     #[clap(short, long)]
     /// Log partial detections.
     debug: bool,
@@ -122,8 +119,7 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
     config.detector.threshold = command.threshold;
     config.detector.min_scores = command.min_scores;
     config.detector.score_mode = command.score_mode.into();
-    config.detector.comparator_band_size = command.comparator_band_size;
-    config.detector.comparator_ref = command.comparator_ref;
+    config.detector.score_ref = command.score_ref;
     config.filters.gain_normalizer.enabled = command.gain_normalizer;
     config.filters.gain_normalizer.gain_ref = command.gain_ref;
     config.filters.gain_normalizer.min_gain = command.min_gain;
@@ -193,20 +189,15 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
             .build_input_stream(
                 &stream_config,
                 move |data: &[i16], _: &_| {
-                    buffer_i16.extend_from_slice(data);
-                    while buffer_i16.len() >= rustpotter_samples_per_frame {
-                        let detection = rustpotter.process_i16(
-                            buffer_i16.drain(0..rustpotter_samples_per_frame).as_slice(),
-                        );
-                        print_detection(
-                            &rustpotter,
-                            detection,
-                            &mut partial_detection_counter,
-                            command.debug,
-                            command.debug_gain,
-                            get_time_string,
-                        );
-                    }
+                    run_detection(
+                        &mut rustpotter,
+                        data,
+                        &mut buffer_i16,
+                        rustpotter_samples_per_frame,
+                        &mut partial_detection_counter,
+                        command.debug,
+                        command.debug_gain,
+                    );
                 },
                 err_fn,
                 None,
@@ -216,20 +207,15 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
             .build_input_stream(
                 &stream_config,
                 move |data: &[i32], _: &_| {
-                    buffer_i32.extend_from_slice(data);
-                    while buffer_i32.len() >= rustpotter_samples_per_frame {
-                        let detection = rustpotter.process_i32(
-                            &buffer_i32.drain(0..rustpotter_samples_per_frame).as_slice(),
-                        );
-                        print_detection(
-                            &rustpotter,
-                            detection,
-                            &mut partial_detection_counter,
-                            command.debug,
-                            command.debug_gain,
-                            get_time_string,
-                        );
-                    }
+                    run_detection(
+                        &mut rustpotter,
+                        data,
+                        &mut buffer_i32,
+                        rustpotter_samples_per_frame,
+                        &mut partial_detection_counter,
+                        command.debug,
+                        command.debug_gain,
+                    )
                 },
                 err_fn,
                 None,
@@ -239,20 +225,15 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
             .build_input_stream(
                 &stream_config,
                 move |data: &[f32], _: &_| {
-                    buffer_f32.extend_from_slice(data);
-                    while buffer_f32.len() >= rustpotter_samples_per_frame {
-                        let detection = rustpotter.process_f32(
-                            buffer_f32.drain(0..rustpotter_samples_per_frame).as_slice(),
-                        );
-                        print_detection(
-                            &rustpotter,
-                            detection,
-                            &mut partial_detection_counter,
-                            command.debug,
-                            command.debug_gain,
-                            get_time_string,
-                        );
-                    }
+                    run_detection(
+                        &mut rustpotter,
+                        data,
+                        &mut buffer_f32,
+                        rustpotter_samples_per_frame,
+                        &mut partial_detection_counter,
+                        command.debug,
+                        command.debug_gain,
+                    )
                 },
                 err_fn,
                 None,
@@ -269,6 +250,34 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
     drop(stream);
     println!("Stopped by user request");
     Ok(())
+}
+
+fn run_detection<T: SampleType>(
+    rustpotter: &mut Rustpotter,
+    data: &[T],
+    buffer: &mut Vec<T>,
+    rustpotter_samples_per_frame: usize,
+    partial_detection_counter: &mut usize,
+    debug: bool,
+    debug_gain: bool,
+) {
+    buffer.extend_from_slice(data);
+    while buffer.len() >= rustpotter_samples_per_frame {
+        let detection = rustpotter.process_samples(
+            buffer
+                .drain(0..rustpotter_samples_per_frame)
+                .as_slice()
+                .into(),
+        );
+        print_detection(
+            &*rustpotter,
+            detection,
+            partial_detection_counter,
+            debug,
+            debug_gain,
+            get_time_string,
+        );
+    }
 }
 
 pub(crate) fn print_detection(

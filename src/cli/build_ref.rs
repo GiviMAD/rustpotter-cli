@@ -2,12 +2,12 @@ use std::{fs::File, io::BufReader};
 
 use clap::Args;
 use hound::WavReader;
-use rustpotter::Wakeword;
+use rustpotter::{WakewordRef, WakewordRefBuildFromFiles, WakewordSave};
 
 #[derive(Args, Debug)]
-/// Creates a wakeword using RIFF wav audio files.
+/// Creates a wakeword reference using wav audio files.
 #[clap()]
-pub struct BuildModelCommand {
+pub struct BuildCommand {
     #[clap(short = 'n', long)]
     /// The term emitted on the spot event
     model_name: String,
@@ -24,7 +24,7 @@ pub struct BuildModelCommand {
     /// Averaged threshold to configure in the generated model, overwrites the detector averaged threshold
     averaged_threshold: Option<f32>,
 }
-pub fn build(command: BuildModelCommand) -> Result<(), String> {
+pub fn build_ref(command: BuildCommand) -> Result<(), String> {
     println!("Start building {}!", command.model_path);
     println!("From samples:");
     for path in &command.sample_path {
@@ -34,7 +34,7 @@ pub fn build(command: BuildModelCommand) -> Result<(), String> {
             .spec();
         println!("{}: {:?}", path, wav_spec);
     }
-    let wakeword = Wakeword::new_from_sample_files(
+    let wakeword = WakewordRef::new_from_sample_files(
         command.model_name.clone(),
         command.threshold,
         command.averaged_threshold,

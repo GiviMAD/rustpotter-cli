@@ -1,14 +1,14 @@
 use clap::Args;
-use hound::{SampleFormat, WavReader};
-use rustpotter::{Rustpotter, RustpotterConfig};
+use hound::{Sample, SampleFormat, WavReader};
+use rustpotter::{Rustpotter, RustpotterConfig, SampleType};
 use std::{fs::File, io::BufReader};
 
 use super::spot::{print_detection, ClapScoreMode};
 
 #[derive(Args, Debug)]
-/// Test model file against a wav sample, detector is automatically configured according to the sample spec
+/// Test wakeword file against a wav sample, detector is automatically configured according to the sample spec
 #[clap()]
-pub struct TestModelCommand {
+pub struct TestCommand {
     #[clap()]
     /// Model to test.
     model_path: String,
@@ -25,7 +25,7 @@ pub struct TestModelCommand {
     /// Minimum number of partial detections
     min_scores: usize,
     #[clap(short = 's', long, default_value_t = ClapScoreMode::Max)]
-    /// How to calculate a unified score
+    /// How to calculate a unified score, no applies to wakeword models.
     score_mode: ClapScoreMode,
     #[clap(short = 'g', long)]
     /// Enables a gain-normalizer audio filter.
@@ -49,12 +49,9 @@ pub struct TestModelCommand {
     #[clap(long, default_value_t = 400.)]
     /// Band-pass audio filter high cutoff.
     high_cutoff: f32,
-    #[clap(long, default_value_t = 5)]
-    /// Band size of the comparison. (Advanced)
-    comparator_band_size: u16,
     #[clap(long, default_value_t = 0.22)]
-    /// Used to express the result as a probability. (Advanced)
-    comparator_ref: f32,
+    /// Used to express the score as value in range 0 - 1.
+    score_ref: f32,
     #[clap(short, long)]
     /// Log partial detections.
     debug: bool,
@@ -62,7 +59,7 @@ pub struct TestModelCommand {
     /// Log rms level ref, gain applied per frame and frame rms level.
     debug_gain: bool,
 }
-pub fn test(command: TestModelCommand) -> Result<(), String> {
+pub fn test(command: TestCommand) -> Result<(), String> {
     println!(
         "Testing file {} against model {}!",
         command.sample_path, command.model_path,
@@ -81,8 +78,7 @@ pub fn test(command: TestModelCommand) -> Result<(), String> {
     config.detector.threshold = command.threshold;
     config.detector.min_scores = command.min_scores;
     config.detector.score_mode = command.score_mode.into();
-    config.detector.comparator_band_size = command.comparator_band_size;
-    config.detector.comparator_ref = command.comparator_ref;
+    config.detector.score_ref = command.score_ref;
     config.filters.gain_normalizer.enabled = command.gain_normalizer;
     config.filters.gain_normalizer.gain_ref = command.gain_ref;
     config.filters.gain_normalizer.min_gain = command.min_gain;
@@ -102,50 +98,83 @@ pub fn test(command: TestModelCommand) -> Result<(), String> {
     let mut chunk_counter = 0;
     let chunk_size = rustpotter.get_samples_per_frame();
     match wav_specs.sample_format {
-        SampleFormat::Int => {
-            let mut buffer = wav_reader
-                .samples::<i32>()
-                .map(Result::unwrap)
-                .collect::<Vec<_>>();
-            buffer.append(&mut vec![0; chunk_size * 100]);
-            buffer
-                .chunks_exact(chunk_size)
-                .for_each(|chunk| {
-                    chunk_counter+=1;
-                    let detection = rustpotter.process_i32(chunk);
-                    print_detection(
-                        &rustpotter,
-                        detection,
-                        &mut partial_detection_counter,
-                        command.debug,
-                        command.debug_gain,
-                        || { get_time_string(chunk_counter, chunk_size, sample_rate) },
-                    );
-                });
-        }
-        SampleFormat::Float => {
-            let mut buffer = wav_reader
-                .samples::<f32>()
-                .map(Result::unwrap)
-                .collect::<Vec<_>>();
-            buffer.append(&mut vec![0.; chunk_size * 100]);
-            buffer
-                .chunks_exact(chunk_size)
-                .for_each(|chunk| {
-                    chunk_counter+=1;
-                    let detection = rustpotter.process_f32(chunk);
-                    print_detection(
-                        &rustpotter,
-                        detection,
-                        &mut partial_detection_counter,
-                        command.debug,
-                        command.debug_gain,
-                        || { get_time_string(chunk_counter, chunk_size, sample_rate) },
-                    );
-                });
-        }
+        SampleFormat::Int => match wav_specs.bits_per_sample {
+            8 => run_detection::<i8>(
+                &mut wav_reader,
+                &mut rustpotter,
+                chunk_size,
+                &mut chunk_counter,
+                &mut partial_detection_counter,
+                sample_rate,
+                command.debug,
+                command.debug_gain,
+            ),
+            16 => run_detection::<i16>(
+                &mut wav_reader,
+                &mut rustpotter,
+                chunk_size,
+                &mut chunk_counter,
+                &mut partial_detection_counter,
+                sample_rate,
+                command.debug,
+                command.debug_gain,
+            ),
+            32 => run_detection::<i32>(
+                &mut wav_reader,
+                &mut rustpotter,
+                chunk_size,
+                &mut chunk_counter,
+                &mut partial_detection_counter,
+                sample_rate,
+                command.debug,
+                command.debug_gain,
+            ),
+            _ => panic!("Unsupported wav format"),
+        },
+        SampleFormat::Float => match wav_specs.bits_per_sample {
+            32 => run_detection::<f32>(
+                &mut wav_reader,
+                &mut rustpotter,
+                chunk_size,
+                &mut chunk_counter,
+                &mut partial_detection_counter,
+                sample_rate,
+                command.debug,
+                command.debug_gain,
+            ),
+            _ => panic!("Unsupported wav format"),
+        },
     };
     Ok(())
+}
+
+fn run_detection<T: Sample + SampleType>(
+    wav_reader: &mut WavReader<BufReader<File>>,
+    rustpotter: &mut Rustpotter,
+    chunk_size: usize,
+    chunk_counter: &mut usize,
+    partial_detection_counter: &mut usize,
+    sample_rate: usize,
+    debug: bool,
+    debug_gain: bool,
+) {
+    let mut buffer = wav_reader
+        .samples::<T>()
+        .map(Result::unwrap)
+        .collect::<Vec<_>>();
+    buffer.append(&mut vec![T::get_zero(); chunk_size * 100]);
+    buffer.chunks_exact(chunk_size).for_each(|chunk| {
+        *chunk_counter += 1;
+        let detection = rustpotter.process_samples(chunk.into());
+        print_detection(
+            rustpotter,
+            detection,
+            partial_detection_counter,
+            debug,
+            debug_gain,
+            || get_time_string(*chunk_counter, chunk_size, sample_rate),
+        );
+    });
 }
 fn get_time_string(chunk_number: usize, chunk_size: usize, sample_rate: usize) -> String {
     let total_seconds = (chunk_number * chunk_size) as f32 / sample_rate as f32;
