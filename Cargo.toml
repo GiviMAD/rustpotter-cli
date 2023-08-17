@@ -1,6 +1,6 @@
 [package]
 name = "rustpotter-cli"
-version = "3.0.0-beta0"
+version = "3.0.0-beta.1"
 edition = "2021"
 license = "Apache-2.0"
 description = "CLI for Rustpotter, an open source wakeword spotter forged in rust."
@@ -8,7 +8,7 @@ authors = ["Miguel Álvarez Díez <miguelwork92@gmail.com>"]
 repository = "https://github.com/GiviMAD/rustpotter"
 exclude = ["tools/**",".github",".gitignore"]
 [dependencies]
-rustpotter = { version = "3.0.0-beta0", features = ["debug", "audio"] }
+rustpotter = { version = "3.0.0-beta.1", features = ["debug", "audio"] }
 ctrlc = "3.2.2"
 clap = { version = "4.1.6", features = ["derive"] }
 hound = "3.4.0"
