@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::io::BufWriter;
+use std::sync::mpsc::Sender;
 use std::sync::{mpsc, Arc, Mutex};
 
 use clap::Args;
@@ -19,7 +20,7 @@ pub struct RecordCommand {
     #[clap(short, long)]
     /// Input device configuration index used for record.
     config_index: Option<usize>,
-    #[clap(short='w', long)]
+    #[clap(short = 'w', long)]
     /// Display host warnings
     host_warnings: bool,
     #[clap(long, default_value_t = 16000)]
@@ -28,6 +29,9 @@ pub struct RecordCommand {
     #[clap(short, long, default_value_t = 1.)]
     /// Adjust the recording volume. value > 1.0 amplifies, value < 1.0 attenuates
     gain: f32,
+    #[clap(long = "ms")]
+    /// max record duration in milliseconds
+    duration_ms: Option<u64>,
 }
 pub fn record(command: RecordCommand) -> Result<(), String> {
     let mut stderr_gag = None;
@@ -47,7 +51,12 @@ pub fn record(command: RecordCommand) -> Result<(), String> {
         device.name().map_err(|err| err.to_string())?
     );
     let device_config = get_config(command.config_index, &device, command.sample_rate);
-    println!("Input device config: Sample Rate: {}, Channels: {}, Format: {}", device_config.sample_rate().0, device_config.channels(), device_config.sample_format());
+    println!(
+        "Input device config: Sample Rate: {}, Channels: {}, Format: {}",
+        device_config.sample_rate().0,
+        device_config.channels(),
+        device_config.sample_format()
+    );
     // disable gag after device config
     if stderr_gag.is_some() {
         drop(stderr_gag.unwrap());
@@ -63,11 +72,24 @@ pub fn record(command: RecordCommand) -> Result<(), String> {
         eprintln!("an error occurred on stream: {}", err);
     };
     let err_cb = move |err: cpal::BuildStreamError| err.to_string();
+    let (tx, rx) = mpsc::channel();
+    let tx_clone: mpsc::Sender<()> = tx.clone();
+    let mut remaining_samples = command
+        .duration_ms
+        .map(|ms| ((spec.sample_rate as f32 / 1000.) * (ms as f32)) as i32);
     let stream = match device_config.sample_format() {
         cpal::SampleFormat::I16 => device
             .build_input_stream(
                 &device_config.into(),
-                move |data, _: &_| write_input_data::<i16, i16>(data, &writer_2, command.gain),
+                move |data, _: &_| {
+                    write_input_data::<i16, i16>(
+                        data,
+                        &writer_2,
+                        command.gain,
+                        &tx_clone,
+                        &mut remaining_samples,
+                    )
+                },
                 err_fn,
                 None,
             )
@@ -75,7 +97,15 @@ pub fn record(command: RecordCommand) -> Result<(), String> {
         cpal::SampleFormat::I32 => device
             .build_input_stream(
                 &device_config.into(),
-                move |data, _: &_| write_input_data::<i32, i32>(data, &writer_2, command.gain),
+                move |data, _: &_| {
+                    write_input_data::<i32, i32>(
+                        data,
+                        &writer_2,
+                        command.gain,
+                        &tx_clone,
+                        &mut remaining_samples,
+                    )
+                },
                 err_fn,
                 None,
             )
@@ -83,7 +113,15 @@ pub fn record(command: RecordCommand) -> Result<(), String> {
         cpal::SampleFormat::F32 => device
             .build_input_stream(
                 &device_config.into(),
-                move |data, _: &_| write_input_data::<f32, f32>(data, &writer_2, command.gain),
+                move |data, _: &_| {
+                    write_input_data::<f32, f32>(
+                        data,
+                        &writer_2,
+                        command.gain,
+                        &tx_clone,
+                        &mut remaining_samples,
+                    )
+                },
                 err_fn,
                 None,
             )
@@ -91,7 +129,9 @@ pub fn record(command: RecordCommand) -> Result<(), String> {
         _ => return Err("Only support sample formats: i16, i32, f32".to_string())?,
     };
     stream.play().expect("Unable to record");
-    let (tx, rx) = mpsc::channel();
+    if let Some(duration_ms) = command.duration_ms {
+        println!("Stopping in {}ms.", duration_ms);
+    }
     ctrlc::set_handler(move || tx.send(()).expect("Could not send signal on channel."))
         .expect("Unable to listen keyboard");
     println!("Press 'Ctrl + c' to stop.");
@@ -109,19 +149,31 @@ pub fn record(command: RecordCommand) -> Result<(), String> {
 }
 
 fn write_input_data<T, U>(
-    input: &[T],
+    data: &[T],
     writer: &Arc<Mutex<Option<hound::WavWriter<BufWriter<File>>>>>,
     gain: f32,
+    tx: &Sender<()>,
+    remaining_samples: &mut Option<i32>,
 ) where
     T: Sample,
     U: Sample + hound::Sample + FromSample<T>,
 {
+    if remaining_samples.is_some() && remaining_samples.as_ref().unwrap().eq(&0) {
+        return;
+    }
     if let Ok(mut guard) = writer.try_lock() {
         if let Some(writer) = guard.as_mut() {
             let gain_sample = Sample::from_sample(gain);
-            for &sample in input.iter() {
+            for &sample in data.iter() {
                 let sample: U = U::from_sample(sample.mul_amp(gain_sample));
                 writer.write_sample(sample).ok();
+                if let Some(remaining_samples) = remaining_samples.as_mut() {
+                    *remaining_samples -= 1;
+                    if *remaining_samples == 0 {
+                        tx.send(()).ok();
+                        break;
+                    }
+                }
             }
         }
     }
