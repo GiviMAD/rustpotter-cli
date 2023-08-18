@@ -5,7 +5,7 @@ use std::sync::{mpsc, Arc, Mutex};
 
 use clap::Args;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{FromSample, Sample, SampleRate};
+use cpal::{FromSample, Sample, SampleRate, SizedSample};
 use gag::Gag;
 #[derive(Args, Debug)]
 /// Record wav audio
@@ -68,64 +68,43 @@ pub fn record(command: RecordCommand) -> Result<(), String> {
     println!("Begin recording...");
     // Run the input stream on a separate thread.
     let writer_2 = writer.clone();
-    let err_fn = move |err| {
-        eprintln!("an error occurred on stream: {}", err);
-    };
-    let err_cb = move |err: cpal::BuildStreamError| err.to_string();
     let (tx, rx) = mpsc::channel();
-    let tx_clone: mpsc::Sender<()> = tx.clone();
-    let mut remaining_samples = command
+    let remaining_samples = command
         .duration_ms
         .map(|ms| ((spec.sample_rate as f32 / 1000.) * (ms as f32)) as i32);
     let stream = match device_config.sample_format() {
-        cpal::SampleFormat::I16 => device
-            .build_input_stream(
-                &device_config.into(),
-                move |data, _: &_| {
-                    write_input_data::<i16, i16>(
-                        data,
-                        &writer_2,
-                        command.gain,
-                        &tx_clone,
-                        &mut remaining_samples,
-                    )
-                },
-                err_fn,
-                None,
-            )
-            .map_err(err_cb)?,
-        cpal::SampleFormat::I32 => device
-            .build_input_stream(
-                &device_config.into(),
-                move |data, _: &_| {
-                    write_input_data::<i32, i32>(
-                        data,
-                        &writer_2,
-                        command.gain,
-                        &tx_clone,
-                        &mut remaining_samples,
-                    )
-                },
-                err_fn,
-                None,
-            )
-            .map_err(err_cb)?,
-        cpal::SampleFormat::F32 => device
-            .build_input_stream(
-                &device_config.into(),
-                move |data, _: &_| {
-                    write_input_data::<f32, f32>(
-                        data,
-                        &writer_2,
-                        command.gain,
-                        &tx_clone,
-                        &mut remaining_samples,
-                    )
-                },
-                err_fn,
-                None,
-            )
-            .map_err(err_cb)?,
+        cpal::SampleFormat::I8 => new_record_stream::<i8, i8>(
+            &device,
+            device_config,
+            writer_2,
+            &tx,
+            command.gain,
+            remaining_samples,
+        )?,
+        cpal::SampleFormat::I16 => new_record_stream::<i16, i16>(
+            &device,
+            device_config,
+            writer_2,
+            &tx,
+            command.gain,
+            remaining_samples,
+        )?,
+        cpal::SampleFormat::I32 => new_record_stream::<i32, i32>(
+            &device,
+            device_config,
+            writer_2,
+            &tx,
+            command.gain,
+            remaining_samples,
+        )?,
+        cpal::SampleFormat::F32 => new_record_stream::<f32, f32>(
+            &device,
+            device_config,
+            writer_2,
+            &tx,
+            command.gain,
+            remaining_samples,
+        )?,
         _ => return Err("Only support sample formats: i16, i32, f32".to_string())?,
     };
     stream.play().expect("Unable to record");
@@ -146,6 +125,35 @@ pub fn record(command: RecordCommand) -> Result<(), String> {
         .expect("Unable to save file");
     println!("Recording {} complete!", &command.output_path);
     Ok(())
+}
+
+fn new_record_stream<T, U>(
+    device: &cpal::Device,
+    device_config: cpal::SupportedStreamConfig,
+    writer_2: Arc<Mutex<Option<hound::WavWriter<BufWriter<File>>>>>,
+    tx: &Sender<()>,
+    gain: f32,
+    mut remaining_samples: Option<i32>,
+) -> Result<cpal::Stream, String>
+where
+    T: Sample + SizedSample,
+    U: Sample + hound::Sample + FromSample<T>,
+{
+    let err_fn = move |err| {
+        eprintln!("an error occurred on stream: {}", err);
+    };
+    let err_cb = move |err: cpal::BuildStreamError| err.to_string();
+    let tx_clone = tx.clone();
+    device
+        .build_input_stream(
+            &device_config.into(),
+            move |data, _: &_| {
+                write_input_data::<T, U>(data, &writer_2, gain, &tx_clone, &mut remaining_samples)
+            },
+            err_fn,
+            None,
+        )
+        .map_err(err_cb)
 }
 
 fn write_input_data<T, U>(
@@ -266,7 +274,7 @@ fn try_get_config_with_sample_rate(
 }
 
 pub(crate) fn get_device(device_index: Option<usize>, host: cpal::Host) -> cpal::Device {
-    let device = device_index
+    device_index
         .map_or_else(
             || host.default_input_device(),
             |device_index| {
@@ -276,6 +284,5 @@ pub(crate) fn get_device(device_index: Option<usize>, host: cpal::Host) -> cpal:
                     .find_map(|(i, d)| if i == device_index { Some(d) } else { None })
             },
         )
-        .expect("Failed to find input device");
-    device
+        .expect("Failed to find input device")
 }

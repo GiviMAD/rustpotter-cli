@@ -1,6 +1,6 @@
 use clap::Args;
-use hound::{Sample, SampleFormat, WavReader};
-use rustpotter::{Rustpotter, RustpotterConfig, SampleType};
+use hound::{SampleFormat, WavReader};
+use rustpotter::{Rustpotter, RustpotterConfig, Sample};
 use std::{fs::File, io::BufReader};
 
 use super::spot::{print_detection, ClapScoreMode};
@@ -71,9 +71,7 @@ pub fn test(command: TestCommand) -> Result<(), String> {
     let wav_specs = wav_reader.spec();
     let mut config = RustpotterConfig::default();
     let sample_rate = wav_specs.sample_rate as usize;
-    config.fmt.sample_rate = sample_rate;
-    config.fmt.bits_per_sample = wav_specs.bits_per_sample;
-    config.fmt.channels = wav_specs.channels;
+    config.fmt = wav_specs.try_into()?;
     config.detector.avg_threshold = command.averaged_threshold;
     config.detector.threshold = command.threshold;
     config.detector.min_scores = command.min_scores;
@@ -86,14 +84,12 @@ pub fn test(command: TestCommand) -> Result<(), String> {
     config.filters.band_pass.enabled = command.band_pass;
     config.filters.band_pass.low_cutoff = command.low_cutoff;
     config.filters.band_pass.high_cutoff = command.high_cutoff;
-    let mut rustpotter = Rustpotter::new(&config)?;
-    if let Err(error) = rustpotter.add_wakeword_from_file(&command.model_path) {
-        clap::Error::raw(
-            clap::error::ErrorKind::InvalidValue,
-            error.to_string() + "\n",
-        )
-        .exit();
+    if command.debug {
+        println!("Rustpotter config:\n{:?}", config);
     }
+    let mut rustpotter = Rustpotter::new(&config)?;
+    println!("Loading wakeword file: {}", command.model_path);
+    rustpotter.add_wakeword_from_file(&command.model_path)?;
     let mut partial_detection_counter = 0;
     let mut chunk_counter = 0;
     let chunk_size = rustpotter.get_samples_per_frame();
@@ -148,7 +144,7 @@ pub fn test(command: TestCommand) -> Result<(), String> {
     Ok(())
 }
 
-fn run_detection<T: Sample + SampleType>(
+fn run_detection<T: Sample + hound::Sample>(
     wav_reader: &mut WavReader<BufReader<File>>,
     rustpotter: &mut Rustpotter,
     chunk_size: usize,

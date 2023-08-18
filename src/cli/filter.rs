@@ -1,7 +1,7 @@
 use clap::Args;
-use hound::{Sample, SampleFormat, WavReader};
+use hound::WavReader;
 use rustpotter::{
-    BandPassFilter, Endianness, GainNormalizerFilter, WAVEncoder, WavFmt, SampleType,
+    BandPassFilter, GainNormalizerFilter, Sample, SampleFormat, WAVEncoder, WavFmt,
     DETECTOR_INTERNAL_SAMPLE_RATE, MFCCS_EXTRACTOR_FRAME_LENGTH_MS,
 };
 use std::{fs::File, io::BufReader, path::Path};
@@ -61,13 +61,7 @@ pub fn filter(command: FilterCommand) -> Result<(), String> {
     let file_reader =
         BufReader::new(File::open(command.sample_path).map_err(|err| err.to_string())?);
     let mut wav_reader = WavReader::new(file_reader).map_err(|err| err.to_string())?;
-    let wav_spec = WavFmt {
-        sample_rate: wav_reader.spec().sample_rate as usize,
-        sample_format: wav_reader.spec().sample_format,
-        bits_per_sample: wav_reader.spec().bits_per_sample,
-        channels: wav_reader.spec().channels,
-        endianness: Endianness::Little,
-    };
+    let wav_spec: WavFmt = wav_reader.spec().try_into()?;
     let mut encoder = WAVEncoder::new(
         &wav_spec,
         MFCCS_EXTRACTOR_FRAME_LENGTH_MS,
@@ -87,15 +81,11 @@ pub fn filter(command: FilterCommand) -> Result<(), String> {
         command.low_cutoff,
         command.high_cutoff,
     );
-    if wav_reader.spec().sample_format == SampleFormat::Float {
-        get_encoded_chucks::<f32>(&mut wav_reader, &mut encoder)
-    } else {
-        match wav_spec.bits_per_sample {
-            8 => get_encoded_chucks::<i8>(&mut wav_reader, &mut encoder),
-            16 => get_encoded_chucks::<i16>(&mut wav_reader, &mut encoder),
-            32 => get_encoded_chucks::<i32>(&mut wav_reader, &mut encoder),
-            _ => panic!("Unsupported wav format"),
-        }
+    match wav_spec.sample_format {
+        SampleFormat::I8 => get_encoded_chucks::<i8>(&mut wav_reader, &mut encoder),
+        SampleFormat::I16 => get_encoded_chucks::<i16>(&mut wav_reader, &mut encoder),
+        SampleFormat::I32 => get_encoded_chucks::<i32>(&mut wav_reader, &mut encoder),
+        SampleFormat::F32 => get_encoded_chucks::<f32>(&mut wav_reader, &mut encoder),
     }
     .into_iter()
     .map(|mut chunk| {
@@ -117,7 +107,7 @@ pub fn filter(command: FilterCommand) -> Result<(), String> {
     Ok(())
 }
 
-fn get_encoded_chucks<T: Sample + SampleType>(
+fn get_encoded_chucks<T: Sample + hound::Sample>(
     wav_reader: &mut WavReader<BufReader<File>>,
     encoder: &mut WAVEncoder,
 ) -> Vec<Vec<f32>> {

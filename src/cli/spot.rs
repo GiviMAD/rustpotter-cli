@@ -2,9 +2,14 @@ use std::{sync::mpsc, time::SystemTime};
 
 use crate::cli::record::{self, is_compatible_buffer_size};
 use clap::Args;
-use cpal::traits::{DeviceTrait, StreamTrait};
+use cpal::{
+    traits::{DeviceTrait, StreamTrait},
+    SizedSample,
+};
 use gag::Gag;
-use rustpotter::{Rustpotter, RustpotterConfig, RustpotterDetection, ScoreMode, SampleType};
+use rustpotter::{
+    Rustpotter, RustpotterConfig, RustpotterDetection, Sample, SampleFormat, ScoreMode,
+};
 use time::OffsetDateTime;
 
 #[derive(Args, Debug)]
@@ -105,16 +110,17 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
     if stderr_gag.is_some() {
         drop(stderr_gag.unwrap());
     }
+    let bits_per_sample = (device_config.sample_format().sample_size() * 8) as u16;
     // configure rustpotter
     let mut config = RustpotterConfig::default();
     config.fmt.sample_rate = device_config.sample_rate().0 as _;
-    config.fmt.bits_per_sample = (device_config.sample_format().sample_size() * 8) as _;
     config.fmt.channels = device_config.channels();
     config.fmt.sample_format = if device_config.sample_format().is_float() {
-        hound::SampleFormat::Float
+        SampleFormat::float_of_size(bits_per_sample)
     } else {
-        hound::SampleFormat::Int
-    };
+        SampleFormat::int_of_size(bits_per_sample)
+    }
+    .expect("Unsupported wav format");
     config.detector.avg_threshold = command.averaged_threshold;
     config.detector.threshold = command.threshold;
     config.detector.min_scores = command.min_scores;
@@ -154,10 +160,8 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
         None
     };
     for path in command.model_path {
-        let result = rustpotter.add_wakeword_from_file(&path);
-        if let Err(error) = result {
-            clap::Error::raw(clap::error::ErrorKind::InvalidValue, error + "\n").exit();
-        }
+        println!("Loading wakeword file: {}", path);
+        rustpotter.add_wakeword_from_file(&path)?;
     }
     if command.debug_gain {
         println!(
@@ -166,10 +170,6 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
         );
     }
     println!("Begin recording...");
-    let err_fn = move |err| {
-        eprintln!("an error occurred on stream: {}", err);
-    };
-    let err_cb = move |err: cpal::BuildStreamError| err.to_string();
     let stream_config = cpal::StreamConfig {
         channels: device_config.channels(),
         sample_rate: device_config.sample_rate(),
@@ -179,66 +179,43 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
     if command.debug {
         println!("Audio stream config: {:?}", stream_config);
     }
-    let mut partial_detection_counter = 0;
-    let mut buffer_i16: Vec<i16> = Vec::new();
-    let mut buffer_i32: Vec<i32> = Vec::new();
-    let mut buffer_f32: Vec<f32> = Vec::new();
-    let rustpotter_samples_per_frame = rustpotter.get_samples_per_frame();
+    let buffer_i8: Vec<i16> = Vec::new();
+    let buffer_i16: Vec<i16> = Vec::new();
+    let buffer_i32: Vec<i32> = Vec::new();
+    let buffer_f32: Vec<f32> = Vec::new();
     let stream = match device_config.sample_format() {
-        cpal::SampleFormat::I16 => device
-            .build_input_stream(
-                &stream_config,
-                move |data: &[i16], _: &_| {
-                    run_detection(
-                        &mut rustpotter,
-                        data,
-                        &mut buffer_i16,
-                        rustpotter_samples_per_frame,
-                        &mut partial_detection_counter,
-                        command.debug,
-                        command.debug_gain,
-                    );
-                },
-                err_fn,
-                None,
-            )
-            .map_err(err_cb)?,
-        cpal::SampleFormat::I32 => device
-            .build_input_stream(
-                &stream_config,
-                move |data: &[i32], _: &_| {
-                    run_detection(
-                        &mut rustpotter,
-                        data,
-                        &mut buffer_i32,
-                        rustpotter_samples_per_frame,
-                        &mut partial_detection_counter,
-                        command.debug,
-                        command.debug_gain,
-                    )
-                },
-                err_fn,
-                None,
-            )
-            .map_err(err_cb)?,
-        cpal::SampleFormat::F32 => device
-            .build_input_stream(
-                &stream_config,
-                move |data: &[f32], _: &_| {
-                    run_detection(
-                        &mut rustpotter,
-                        data,
-                        &mut buffer_f32,
-                        rustpotter_samples_per_frame,
-                        &mut partial_detection_counter,
-                        command.debug,
-                        command.debug_gain,
-                    )
-                },
-                err_fn,
-                None,
-            )
-            .map_err(err_cb)?,
+        cpal::SampleFormat::I8 => init_spot_stream(
+            &device,
+            &stream_config,
+            rustpotter,
+            buffer_i8,
+            command.debug,
+            command.debug_gain,
+        )?,
+        cpal::SampleFormat::I16 => init_spot_stream(
+            &device,
+            &stream_config,
+            rustpotter,
+            buffer_i16,
+            command.debug,
+            command.debug_gain,
+        )?,
+        cpal::SampleFormat::I32 => init_spot_stream(
+            &device,
+            &stream_config,
+            rustpotter,
+            buffer_i32,
+            command.debug,
+            command.debug_gain,
+        )?,
+        cpal::SampleFormat::F32 => init_spot_stream(
+            &device,
+            &stream_config,
+            rustpotter,
+            buffer_f32,
+            command.debug,
+            command.debug_gain,
+        )?,
         _ => return Err("Only support sample formats: i16, i32, f32".to_string())?,
     };
     stream.play().expect("Unable to record");
@@ -252,7 +229,36 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
     Ok(())
 }
 
-fn run_detection<T: SampleType>(
+fn init_spot_stream<S: Sample + SizedSample>(
+    device: &cpal::Device,
+    stream_config: &cpal::StreamConfig,
+    mut rustpotter: Rustpotter,
+    mut buffer: Vec<S>,
+    debug: bool,
+    debug_gain: bool,
+) -> Result<cpal::Stream, String> {
+    let error_callback = move |err| {
+        eprintln!("an error occurred on stream: {}", err);
+    };
+    let mut partial_detection_counter = 0;
+    let rustpotter_samples_per_frame = rustpotter.get_samples_per_frame();
+    let data_callback = move |data: &[S], _: &_| {
+        run_detection(
+            &mut rustpotter,
+            data,
+            &mut buffer,
+            rustpotter_samples_per_frame,
+            &mut partial_detection_counter,
+            debug,
+            debug_gain,
+        )
+    };
+    device
+        .build_input_stream(stream_config, data_callback, error_callback, None)
+        .map_err(|err: cpal::BuildStreamError| err.to_string())
+}
+
+fn run_detection<T: Sample>(
     rustpotter: &mut Rustpotter,
     data: &[T],
     buffer: &mut Vec<T>,
