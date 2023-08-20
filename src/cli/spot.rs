@@ -80,6 +80,9 @@ pub struct SpotCommand {
     #[clap(long)]
     /// Log rms level ref, gain applied per frame and frame rms level.
     debug_gain: bool,
+    #[clap(short, long)]
+    /// Path to create records, one on the first partial detection and another each one that scores better.
+    record_path: Option<String>,
 }
 
 pub fn spot(command: SpotCommand) -> Result<(), String> {
@@ -126,6 +129,7 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
     config.detector.min_scores = command.min_scores;
     config.detector.score_mode = command.score_mode.into();
     config.detector.score_ref = command.score_ref;
+    config.detector.record_path = command.record_path;
     config.filters.gain_normalizer.enabled = command.gain_normalizer;
     config.filters.gain_normalizer.gain_ref = command.gain_ref;
     config.filters.gain_normalizer.min_gain = command.min_gain;

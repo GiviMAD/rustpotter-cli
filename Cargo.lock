@@ -1291,9 +1291,9 @@ dependencies = [
 
 [[package]]
 name = "rustpotter"
-version = "3.0.0-beta.2"
+version = "3.0.0-beta.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "930394679e72e416951e843891fec02158fecb85c9b1edb2d45351e86acd9a81"
+checksum = "62e73cbed04283cc5af1dd62c019c9bc25c2637eb63a9cbca8839e2a3c740489"
 dependencies = [
  "candle-core",
  "candle-nn",
@@ -1306,7 +1306,7 @@ dependencies = [
 
 [[package]]
 name = "rustpotter-cli"
-version = "3.0.0-beta.2"
+version = "3.0.0-beta.4"
 dependencies = [
  "clap",
  "cpal",
