@@ -30,7 +30,7 @@ pub struct RecordCommand {
     /// Adjust the recording volume. value > 1.0 amplifies, value < 1.0 attenuates
     gain: f32,
     #[clap(long = "ms")]
-    /// max record duration in milliseconds
+    /// Max record duration in milliseconds
     duration_ms: Option<u64>,
 }
 pub fn record(command: RecordCommand) -> Result<(), String> {
@@ -71,7 +71,7 @@ pub fn record(command: RecordCommand) -> Result<(), String> {
     let (tx, rx) = mpsc::channel();
     let remaining_samples = command
         .duration_ms
-        .map(|ms| ((spec.sample_rate as f32 / 1000.) * (ms as f32)) as i32);
+        .map(|ms| ((spec.sample_rate as f32 / 1000.) * (ms as f32) * spec.channels as f32) as u64);
     let stream = match device_config.sample_format() {
         cpal::SampleFormat::I8 => new_record_stream::<i8, i8>(
             &device,
@@ -133,7 +133,7 @@ fn new_record_stream<T, U>(
     writer_2: Arc<Mutex<Option<hound::WavWriter<BufWriter<File>>>>>,
     tx: &Sender<()>,
     gain: f32,
-    mut remaining_samples: Option<i32>,
+    mut remaining_samples: Option<u64>,
 ) -> Result<cpal::Stream, String>
 where
     T: Sample + SizedSample,
@@ -161,7 +161,7 @@ fn write_input_data<T, U>(
     writer: &Arc<Mutex<Option<hound::WavWriter<BufWriter<File>>>>>,
     gain: f32,
     tx: &Sender<()>,
-    remaining_samples: &mut Option<i32>,
+    remaining_samples: &mut Option<u64>,
 ) where
     T: Sample,
     U: Sample + hound::Sample + FromSample<T>,
