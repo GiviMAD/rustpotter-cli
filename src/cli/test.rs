@@ -3,7 +3,7 @@ use hound::{SampleFormat, WavReader};
 use rustpotter::{Rustpotter, RustpotterConfig, Sample};
 use std::{fs::File, io::BufReader};
 
-use super::spot::{print_detection, ClapScoreMode};
+use super::spot::{print_detection, ClapScoreMode, ClapVADMode};
 
 #[derive(Args, Debug)]
 /// Test wakeword file against a wav sample, detector is automatically configured according to the sample spec
@@ -27,6 +27,9 @@ pub struct TestCommand {
     #[clap(short = 's', long, default_value_t = ClapScoreMode::Max)]
     /// How to calculate a unified score, no applies to wakeword models.
     score_mode: ClapScoreMode,
+    #[clap(short = 'v', long)]
+    /// Enabled vad detection.
+    vad_mode: Option<ClapVADMode>,
     #[clap(short = 'g', long)]
     /// Enables a gain-normalizer audio filter.
     gain_normalizer: bool,
@@ -80,6 +83,7 @@ pub fn test(command: TestCommand) -> Result<(), String> {
     config.detector.min_scores = command.min_scores;
     config.detector.score_mode = command.score_mode.into();
     config.detector.score_ref = command.score_ref;
+    config.detector.vad_mode = command.vad_mode.map(|v| v.into());
     config.detector.record_path = command.record_path;
     config.filters.gain_normalizer.enabled = command.gain_normalizer;
     config.filters.gain_normalizer.gain_ref = command.gain_ref;

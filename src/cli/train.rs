@@ -23,6 +23,9 @@ pub struct TrainCommand {
     #[clap(short = 'e', long, default_value_t = 1000)]
     /// Number of backward and forward cycles to run
     epochs: usize,
+    #[clap(short = 'c', long, default_value_t = 16)]
+    /// Number of extracted mel-frequency cepstral coefficients
+    mfcc_size: u16,
     #[clap(short = 'm')]
     /// Model to continue training from
     wakeword_model: Option<String>,
@@ -40,6 +43,7 @@ pub fn train(command: TrainCommand) -> Result<(), String> {
         command.test_dir,
         command.learning_rate,
         command.epochs,
+        command.mfcc_size,
         model,
     )
     .map_err(|err| err.to_string())?;

@@ -8,7 +8,7 @@ use cpal::{
 };
 use gag::Gag;
 use rustpotter::{
-    Rustpotter, RustpotterConfig, RustpotterDetection, Sample, SampleFormat, ScoreMode,
+    Rustpotter, RustpotterConfig, RustpotterDetection, Sample, SampleFormat, ScoreMode, VADMode,
 };
 use time::OffsetDateTime;
 
@@ -49,6 +49,9 @@ pub struct SpotCommand {
     #[clap(short = 's', long, default_value_t = ClapScoreMode::Max)]
     /// How to calculate a unified score
     score_mode: ClapScoreMode,
+    #[clap(short = 'v', long)]
+    /// Enabled vad detection.
+    vad_mode: Option<ClapVADMode>,
     #[clap(short = 'g', long)]
     /// Enables a gain-normalizer audio filter.
     gain_normalizer: bool,
@@ -129,6 +132,7 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
     config.detector.min_scores = command.min_scores;
     config.detector.score_mode = command.score_mode.into();
     config.detector.score_ref = command.score_ref;
+    config.detector.vad_mode = command.vad_mode.map(|v| v.into());
     config.detector.record_path = command.record_path;
     config.filters.gain_normalizer.enabled = command.gain_normalizer;
     config.filters.gain_normalizer.gain_ref = command.gain_ref;
@@ -328,6 +332,31 @@ pub(crate) fn print_detection(
     };
 }
 
+#[derive(clap::ValueEnum, Clone, Debug)]
+pub(crate) enum ClapVADMode {
+    Easy,
+    Medium,
+    Hard,
+}
+impl std::fmt::Display for ClapVADMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ClapVADMode::Easy => write!(f, "easy"),
+            ClapVADMode::Medium => write!(f, "medium"),
+            ClapVADMode::Hard => write!(f, "hard"),
+        }
+    }
+}
+
+impl From<ClapVADMode> for VADMode {
+    fn from(value: ClapVADMode) -> Self {
+        match value {
+            ClapVADMode::Easy => VADMode::Easy,
+            ClapVADMode::Medium => VADMode::Medium,
+            ClapVADMode::Hard => VADMode::Hard,
+        }
+    }
+}
 #[derive(clap::ValueEnum, Clone, Debug)]
 pub(crate) enum ClapScoreMode {
     Max,

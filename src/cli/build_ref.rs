@@ -23,6 +23,9 @@ pub struct BuildCommand {
     #[clap(short = 'a', long)]
     /// Averaged threshold to configure in the generated model, overwrites the detector averaged threshold
     averaged_threshold: Option<f32>,
+    #[clap(short = 'c', long, default_value_t = 16)]
+    /// Number of extracted mel-frequency cepstral coefficients
+    mfcc_size: u16,
 }
 pub fn build_ref(command: BuildCommand) -> Result<(), String> {
     println!("Start building {}!", command.model_path);
@@ -39,18 +42,9 @@ pub fn build_ref(command: BuildCommand) -> Result<(), String> {
         command.threshold,
         command.averaged_threshold,
         command.sample_path,
+        command.mfcc_size,
     )?;
-    match wakeword.save_to_file(&command.model_path) {
-        Ok(_) => {
-            println!("{} created!", command.model_name);
-        }
-        Err(error) => {
-            clap::Error::raw(
-                clap::error::ErrorKind::InvalidValue,
-                error.to_string() + "\n",
-            )
-            .exit();
-        }
-    };
+    wakeword.save_to_file(&command.model_path)?;
+    println!("{} created!", command.model_name);
     Ok(())
 }
