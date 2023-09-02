@@ -44,7 +44,7 @@ pub fn train(command: TrainCommand) -> Result<(), String> {
         None
     };
     let options = WakewordModelTrainOptions::new(
-        command.model_type.into(),
+        command.model_type,
         command.learning_rate,
         command.epochs,
         command.test_epochs,

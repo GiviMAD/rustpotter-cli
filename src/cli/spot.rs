@@ -113,8 +113,8 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
         device_config.sample_format()
     );
     // disable gag after device config
-    if stderr_gag.is_some() {
-        drop(stderr_gag.unwrap());
+    if let Some(stderr_gag) = stderr_gag {
+        drop(stderr_gag);
     }
     let bits_per_sample = (device_config.sample_format().sample_size() * 8) as u16;
     // configure rustpotter
@@ -130,9 +130,9 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
     config.detector.avg_threshold = command.averaged_threshold;
     config.detector.threshold = command.threshold;
     config.detector.min_scores = command.min_scores;
-    config.detector.score_mode = command.score_mode.into();
+    config.detector.score_mode = command.score_mode;
     config.detector.score_ref = command.score_ref;
-    config.detector.vad_mode = command.vad_mode.map(|v| v.into());
+    config.detector.vad_mode = command.vad_mode;
     config.detector.record_path = command.record_path;
     config.filters.gain_normalizer.enabled = command.gain_normalizer;
     config.filters.gain_normalizer.gain_ref = command.gain_ref;
@@ -154,9 +154,9 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
             .unwrap_or(rustpotter.get_samples_per_frame() as u32);
         if host_name == "ALSA" && required_buffer_size % 2 != 0 {
             // force even buffer size to workaround issue mentioned here https://github.com/RustAudio/cpal/pull/582#pullrequestreview-1095655011
-            required_buffer_size = required_buffer_size + 1;
+            required_buffer_size += 1;
         }
-        if !is_compatible_buffer_size(&device_config.buffer_size(), required_buffer_size) {
+        if !is_compatible_buffer_size(device_config.buffer_size(), required_buffer_size) {
             clap::Error::raw(
                 clap::error::ErrorKind::Io,
                 "Required buffer size does not matches device configuration, try selecting other.\n",
@@ -169,7 +169,7 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
     };
     for path in command.model_path {
         println!("Loading wakeword file: {}", path);
-        rustpotter.add_wakeword_from_file( "w", &path)?;
+        rustpotter.add_wakeword_from_file("w", &path)?;
     }
     if command.debug_gain {
         println!(
@@ -182,7 +182,7 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
         channels: device_config.channels(),
         sample_rate: device_config.sample_rate(),
         buffer_size: required_buffer_size
-            .map_or(cpal::BufferSize::Default, |v| cpal::BufferSize::Fixed(v)),
+            .map_or(cpal::BufferSize::Default, cpal::BufferSize::Fixed),
     };
     if command.debug {
         println!("Audio stream config: {:?}", stream_config);

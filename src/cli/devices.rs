@@ -14,7 +14,7 @@ pub struct DevicesCommand {
     #[clap(long, short)]
     /// Filter device configs by max channel number
     max_channels: Option<u16>,
-    #[clap(short='w', long)]
+    #[clap(short = 'w', long)]
     /// Display host warnings
     host_warnings: bool,
 }
@@ -25,13 +25,17 @@ pub fn devices(command: DevicesCommand) -> Result<(), String> {
         drop(stderr_gag);
     }
     println!("Audio hosts:\n  - {:?}", default_host.id());
-    let default_in = default_host.default_input_device().map(|e| e.name().unwrap());
+    let default_in = default_host
+        .default_input_device()
+        .map(|e| e.name().unwrap());
     if let Some(def_in) = default_in {
         println!("Default input device:\n  - {}", def_in);
     } else {
         println!("No default input device");
     }
-    let devices = default_host.input_devices().map_err(|err| err.to_string())?;
+    let devices = default_host
+        .input_devices()
+        .map_err(|err| err.to_string())?;
     println!("Available Devices: ");
     for (device_index, device) in devices.enumerate() {
         println!(

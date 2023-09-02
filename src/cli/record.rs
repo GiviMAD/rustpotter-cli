@@ -58,12 +58,12 @@ pub fn record(command: RecordCommand) -> Result<(), String> {
         device_config.sample_format()
     );
     // disable gag after device config
-    if stderr_gag.is_some() {
-        drop(stderr_gag.unwrap());
+    if let Some(stderr_gag) = stderr_gag {
+        drop(stderr_gag);
     }
     // Create wav spec
     let spec = wav_spec_from_config(&device_config);
-    let writer = hound::WavWriter::create(command.output_path.to_string(), spec).unwrap();
+    let writer = hound::WavWriter::create(&command.output_path, spec).unwrap();
     let writer = Arc::new(Mutex::new(Some(writer)));
     println!("Begin recording...");
     // Run the input stream on a separate thread.
@@ -203,12 +203,10 @@ fn wav_spec_from_config(config: &cpal::SupportedStreamConfig) -> hound::WavSpec 
 // cpal utils for selecting input device and stream config
 
 pub(crate) fn is_compatible_format(format: &cpal::SampleFormat) -> bool {
-    match format {
-        cpal::SampleFormat::I16 => true,
-        cpal::SampleFormat::I32 => true,
-        cpal::SampleFormat::F32 => true,
-        _ => false,
-    }
+    matches!(
+        format,
+        cpal::SampleFormat::I16 | cpal::SampleFormat::I32 | cpal::SampleFormat::F32
+    )
 }
 pub(crate) fn is_compatible_buffer_size(
     supported_buffer_size: &cpal::SupportedBufferSize,

@@ -81,9 +81,9 @@ pub fn test(command: TestCommand) -> Result<(), String> {
     config.detector.avg_threshold = command.averaged_threshold;
     config.detector.threshold = command.threshold;
     config.detector.min_scores = command.min_scores;
-    config.detector.score_mode = command.score_mode.into();
+    config.detector.score_mode = command.score_mode;
     config.detector.score_ref = command.score_ref;
-    config.detector.vad_mode = command.vad_mode.map(|v| v.into());
+    config.detector.vad_mode = command.vad_mode;
     config.detector.record_path = command.record_path;
     config.filters.gain_normalizer.enabled = command.gain_normalizer;
     config.filters.gain_normalizer.gain_ref = command.gain_ref;
@@ -100,13 +100,11 @@ pub fn test(command: TestCommand) -> Result<(), String> {
     rustpotter.add_wakeword_from_file("_", &command.model_path)?;
     let mut partial_detection_counter = 0;
     let mut chunk_counter = 0;
-    let chunk_size = rustpotter.get_samples_per_frame();
     match wav_specs.sample_format {
         SampleFormat::Int => match wav_specs.bits_per_sample {
             8 => run_detection::<i8>(
                 &mut wav_reader,
                 &mut rustpotter,
-                chunk_size,
                 &mut chunk_counter,
                 &mut partial_detection_counter,
                 sample_rate,
@@ -116,7 +114,6 @@ pub fn test(command: TestCommand) -> Result<(), String> {
             16 => run_detection::<i16>(
                 &mut wav_reader,
                 &mut rustpotter,
-                chunk_size,
                 &mut chunk_counter,
                 &mut partial_detection_counter,
                 sample_rate,
@@ -126,7 +123,6 @@ pub fn test(command: TestCommand) -> Result<(), String> {
             32 => run_detection::<i32>(
                 &mut wav_reader,
                 &mut rustpotter,
-                chunk_size,
                 &mut chunk_counter,
                 &mut partial_detection_counter,
                 sample_rate,
@@ -139,7 +135,6 @@ pub fn test(command: TestCommand) -> Result<(), String> {
             32 => run_detection::<f32>(
                 &mut wav_reader,
                 &mut rustpotter,
-                chunk_size,
                 &mut chunk_counter,
                 &mut partial_detection_counter,
                 sample_rate,
@@ -155,13 +150,13 @@ pub fn test(command: TestCommand) -> Result<(), String> {
 fn run_detection<T: Sample + hound::Sample>(
     wav_reader: &mut WavReader<BufReader<File>>,
     rustpotter: &mut Rustpotter,
-    chunk_size: usize,
     chunk_counter: &mut usize,
     partial_detection_counter: &mut usize,
     sample_rate: usize,
     debug: bool,
     debug_gain: bool,
 ) {
+    let chunk_size = rustpotter.get_samples_per_frame();
     let mut buffer = wav_reader
         .samples::<T>()
         .map(Result::unwrap)
