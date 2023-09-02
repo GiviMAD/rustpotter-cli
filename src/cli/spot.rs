@@ -46,12 +46,12 @@ pub struct SpotCommand {
     #[clap(short, long, default_value_t = 10)]
     /// Minimum number of partial detections
     min_scores: usize,
-    #[clap(short = 's', long, default_value_t = ClapScoreMode::Max)]
+    #[clap(short = 's', long, default_value_t = ScoreMode::Max)]
     /// How to calculate a unified score
-    score_mode: ClapScoreMode,
+    score_mode: ScoreMode,
     #[clap(short = 'v', long)]
     /// Enabled vad detection.
-    vad_mode: Option<ClapVADMode>,
+    vad_mode: Option<VADMode>,
     #[clap(short = 'g', long)]
     /// Enables a gain-normalizer audio filter.
     gain_normalizer: bool,
@@ -169,7 +169,7 @@ pub fn spot(command: SpotCommand) -> Result<(), String> {
     };
     for path in command.model_path {
         println!("Loading wakeword file: {}", path);
-        rustpotter.add_wakeword_from_file(&path)?;
+        rustpotter.add_wakeword_from_file( "w", &path)?;
     }
     if command.debug_gain {
         println!(
@@ -330,74 +330,6 @@ pub(crate) fn print_detection(
             },
         ),
     };
-}
-
-#[derive(clap::ValueEnum, Clone, Debug)]
-pub(crate) enum ClapVADMode {
-    Easy,
-    Medium,
-    Hard,
-}
-impl std::fmt::Display for ClapVADMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ClapVADMode::Easy => write!(f, "easy"),
-            ClapVADMode::Medium => write!(f, "medium"),
-            ClapVADMode::Hard => write!(f, "hard"),
-        }
-    }
-}
-
-impl From<ClapVADMode> for VADMode {
-    fn from(value: ClapVADMode) -> Self {
-        match value {
-            ClapVADMode::Easy => VADMode::Easy,
-            ClapVADMode::Medium => VADMode::Medium,
-            ClapVADMode::Hard => VADMode::Hard,
-        }
-    }
-}
-#[derive(clap::ValueEnum, Clone, Debug)]
-pub(crate) enum ClapScoreMode {
-    Max,
-    Avg,
-    Median,
-    P25,
-    P50,
-    P75,
-    P80,
-    P90,
-    P95,
-}
-impl std::fmt::Display for ClapScoreMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ClapScoreMode::Avg => write!(f, "avg"),
-            ClapScoreMode::Max => write!(f, "max"),
-            ClapScoreMode::Median => write!(f, "median"),
-            ClapScoreMode::P25 => write!(f, "p25"),
-            ClapScoreMode::P50 => write!(f, "p50"),
-            ClapScoreMode::P75 => write!(f, "p75"),
-            ClapScoreMode::P80 => write!(f, "p80"),
-            ClapScoreMode::P90 => write!(f, "p90"),
-            ClapScoreMode::P95 => write!(f, "p95"),
-        }
-    }
-}
-impl From<ClapScoreMode> for ScoreMode {
-    fn from(value: ClapScoreMode) -> Self {
-        match value {
-            ClapScoreMode::Avg => ScoreMode::Average,
-            ClapScoreMode::Max => ScoreMode::Max,
-            ClapScoreMode::Median => ScoreMode::Median,
-            ClapScoreMode::P25 => ScoreMode::P25,
-            ClapScoreMode::P50 => ScoreMode::P50,
-            ClapScoreMode::P75 => ScoreMode::P75,
-            ClapScoreMode::P80 => ScoreMode::P80,
-            ClapScoreMode::P90 => ScoreMode::P90,
-            ClapScoreMode::P95 => ScoreMode::P95,
-        }
-    }
 }
 fn get_time_string() -> String {
     let dt: OffsetDateTime = SystemTime::now().into();

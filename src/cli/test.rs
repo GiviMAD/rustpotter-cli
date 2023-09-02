@@ -1,9 +1,9 @@
 use clap::Args;
 use hound::{SampleFormat, WavReader};
-use rustpotter::{Rustpotter, RustpotterConfig, Sample};
+use rustpotter::{Rustpotter, RustpotterConfig, Sample, ScoreMode, VADMode};
 use std::{fs::File, io::BufReader};
 
-use super::spot::{print_detection, ClapScoreMode, ClapVADMode};
+use super::spot::print_detection;
 
 #[derive(Args, Debug)]
 /// Test wakeword file against a wav sample, detector is automatically configured according to the sample spec
@@ -24,12 +24,12 @@ pub struct TestCommand {
     #[clap(short, long, default_value_t = 10)]
     /// Minimum number of partial detections
     min_scores: usize,
-    #[clap(short = 's', long, default_value_t = ClapScoreMode::Max)]
+    #[clap(short = 's', long, default_value_t = ScoreMode::Max)]
     /// How to calculate a unified score, no applies to wakeword models.
-    score_mode: ClapScoreMode,
+    score_mode: ScoreMode,
     #[clap(short = 'v', long)]
     /// Enabled vad detection.
-    vad_mode: Option<ClapVADMode>,
+    vad_mode: Option<VADMode>,
     #[clap(short = 'g', long)]
     /// Enables a gain-normalizer audio filter.
     gain_normalizer: bool,
@@ -97,7 +97,7 @@ pub fn test(command: TestCommand) -> Result<(), String> {
     }
     let mut rustpotter = Rustpotter::new(&config)?;
     println!("Loading wakeword file: {}", command.model_path);
-    rustpotter.add_wakeword_from_file(&command.model_path)?;
+    rustpotter.add_wakeword_from_file("_", &command.model_path)?;
     let mut partial_detection_counter = 0;
     let mut chunk_counter = 0;
     let chunk_size = rustpotter.get_samples_per_frame();
