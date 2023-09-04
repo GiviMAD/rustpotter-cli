@@ -24,6 +24,9 @@ pub struct TestCommand {
     #[clap(short, long, default_value_t = 10)]
     /// Minimum number of partial detections
     min_scores: usize,
+    #[clap(short, long)]
+    /// Emit detection on min scores.
+    eager: bool,
     #[clap(short = 's', long, default_value_t = ScoreMode::Max)]
     /// How to calculate a unified score, no applies to wakeword models.
     score_mode: ScoreMode,
@@ -81,6 +84,7 @@ pub fn test(command: TestCommand) -> Result<(), String> {
     config.detector.avg_threshold = command.averaged_threshold;
     config.detector.threshold = command.threshold;
     config.detector.min_scores = command.min_scores;
+    config.detector.eager = command.eager;
     config.detector.score_mode = command.score_mode;
     config.detector.score_ref = command.score_ref;
     config.detector.vad_mode = command.vad_mode;

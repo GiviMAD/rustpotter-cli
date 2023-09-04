@@ -10,10 +10,10 @@ use rustpotter::{WakewordRef, WakewordRefBuildFromFiles, WakewordSave};
 pub struct BuildCommand {
     #[clap(short = 'n', long)]
     /// The term emitted on the spot event
-    model_name: String,
+    name: String,
     #[clap(short = 'p', long)]
     /// Generated model path
-    model_path: String,
+    path: String,
     #[clap(num_args = 1.., required = true)]
     /// List of sample record paths
     sample_path: Vec<String>,
@@ -28,7 +28,7 @@ pub struct BuildCommand {
     mfcc_size: u16,
 }
 pub fn build_ref(command: BuildCommand) -> Result<(), String> {
-    println!("Start building {}!", command.model_path);
+    println!("Start building {}!", command.path);
     println!("From samples:");
     for path in &command.sample_path {
         let reader = BufReader::new(File::open(path).map_err(|err| err.to_string())?);
@@ -38,13 +38,13 @@ pub fn build_ref(command: BuildCommand) -> Result<(), String> {
         println!("{}: {:?}", path, wav_spec);
     }
     let wakeword = WakewordRef::new_from_sample_files(
-        command.model_name.clone(),
+        command.name.clone(),
         command.threshold,
         command.averaged_threshold,
         command.sample_path,
         command.mfcc_size,
     )?;
-    wakeword.save_to_file(&command.model_path)?;
-    println!("{} created!", command.model_name);
+    wakeword.save_to_file(&command.path)?;
+    println!("{} created!", command.name);
     Ok(())
 }

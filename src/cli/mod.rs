@@ -1,5 +1,5 @@
 use clap::{Parser, Subcommand};
-mod build_ref;
+mod build;
 mod devices;
 mod filter;
 mod record;
@@ -7,7 +7,7 @@ mod spot;
 mod test;
 mod train;
 use self::{
-    build_ref::{build_ref, BuildCommand},
+    build::{build_ref, BuildCommand},
     devices::{devices, DevicesCommand},
     filter::{filter, FilterCommand},
     record::{record, RecordCommand},
@@ -28,7 +28,7 @@ struct Cli {
 enum Command {
     /// Build wakeword reference from wav audio files.
     ///
-    /// This wakeword type requires a few sample files to be created (recommended 3 to 8), but produces low fidelity results.
+    /// These wakewords offers worst quality detection than the wakeword models but requires low number of records  (recommended 3 to 8).
     ///
     /// The file size and the cpu consumption depends on the number of sample files for built it.
     ///

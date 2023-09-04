@@ -1,7 +1,7 @@
 use clap::Args;
 use hound::WavReader;
 use rustpotter::{
-    BandPassFilter, GainNormalizerFilter, Sample, SampleFormat, WAVEncoder, WavFmt,
+    BandPassFilter, GainNormalizerFilter, Sample, SampleFormat, AudioEncoder, AudioFmt,
     DETECTOR_INTERNAL_SAMPLE_RATE, MFCCS_EXTRACTOR_FRAME_LENGTH_MS,
 };
 use std::{fs::File, io::BufReader, path::Path};
@@ -61,8 +61,8 @@ pub fn filter(command: FilterCommand) -> Result<(), String> {
     let file_reader =
         BufReader::new(File::open(command.sample_path).map_err(|err| err.to_string())?);
     let mut wav_reader = WavReader::new(file_reader).map_err(|err| err.to_string())?;
-    let wav_spec: WavFmt = wav_reader.spec().try_into()?;
-    let mut encoder = WAVEncoder::new(
+    let wav_spec: AudioFmt = wav_reader.spec().try_into()?;
+    let mut encoder = AudioEncoder::new(
         &wav_spec,
         MFCCS_EXTRACTOR_FRAME_LENGTH_MS,
         DETECTOR_INTERNAL_SAMPLE_RATE,
@@ -109,7 +109,7 @@ pub fn filter(command: FilterCommand) -> Result<(), String> {
 
 fn get_encoded_chucks<T: Sample + hound::Sample>(
     wav_reader: &mut WavReader<BufReader<File>>,
-    encoder: &mut WAVEncoder,
+    encoder: &mut AudioEncoder,
 ) -> Vec<Vec<f32>> {
     wav_reader
         .samples::<T>()
