@@ -1,8 +1,8 @@
 use clap::Args;
-use hound::{SampleFormat, WavReader};
+use hound::WavReader;
 use rustpotter::{
-    BandPassFilter, Endianness, GainNormalizerFilter, WAVEncoder, WavFmt,
-    DETECTOR_INTERNAL_SAMPLE_RATE, FEATURE_EXTRACTOR_FRAME_LENGTH_MS,
+    BandPassFilter, GainNormalizerFilter, Sample, SampleFormat, AudioEncoder, AudioFmt,
+    DETECTOR_INTERNAL_SAMPLE_RATE, MFCCS_EXTRACTOR_FRAME_LENGTH_MS,
 };
 use std::{fs::File, io::BufReader, path::Path};
 
@@ -60,17 +60,11 @@ pub fn filter(command: FilterCommand) -> Result<(), String> {
     // Read wav file
     let file_reader =
         BufReader::new(File::open(command.sample_path).map_err(|err| err.to_string())?);
-    let wav_reader = WavReader::new(file_reader).map_err(|err| err.to_string())?;
-    let wav_spec = WavFmt {
-        sample_rate: wav_reader.spec().sample_rate as usize,
-        sample_format: wav_reader.spec().sample_format,
-        bits_per_sample: wav_reader.spec().bits_per_sample,
-        channels: wav_reader.spec().channels,
-        endianness: Endianness::Little,
-    };
-    let mut encoder = WAVEncoder::new(
+    let mut wav_reader = WavReader::new(file_reader).map_err(|err| err.to_string())?;
+    let wav_spec: AudioFmt = wav_reader.spec().try_into()?;
+    let mut encoder = AudioEncoder::new(
         &wav_spec,
-        FEATURE_EXTRACTOR_FRAME_LENGTH_MS,
+        MFCCS_EXTRACTOR_FRAME_LENGTH_MS,
         DETECTOR_INTERNAL_SAMPLE_RATE,
     )
     .unwrap();
@@ -87,38 +81,41 @@ pub fn filter(command: FilterCommand) -> Result<(), String> {
         command.low_cutoff,
         command.high_cutoff,
     );
-    if wav_reader.spec().sample_format == SampleFormat::Float {
-        wav_reader
-            .into_samples::<f32>()
-            .map(|chunk| *chunk.as_ref().unwrap())
-            .collect::<Vec<_>>()
-            .chunks_exact(encoder.get_input_frame_length())
-            .map(|chuck| encoder.reencode_float(chuck))
-            .collect::<Vec<Vec<f32>>>()
-    } else {
-        wav_reader
-            .into_samples::<i32>()
-            .map(|chunk| *chunk.as_ref().unwrap())
-            .collect::<Vec<_>>()
-            .chunks_exact(encoder.get_input_frame_length())
-            .map(|chuck| encoder.reencode_int(chuck))
-            .collect::<Vec<Vec<f32>>>()
-    }.into_iter()
-        .map(|mut chunk| {
-            if command.gain_normalizer {
-                let rms_level = GainNormalizerFilter::get_rms_level(&chunk);
-                gain_filter.filter(&mut chunk, rms_level);
-            }
-            if command.band_pass {
-                bandpass_filter.filter(&mut chunk);
-            }
-            chunk
-        })
-        .for_each(|encoded_chunk| {
-            for sample in encoded_chunk {
-                writer.write_sample(sample).ok();
-            }
-        });
+    match wav_spec.sample_format {
+        SampleFormat::I8 => get_encoded_chucks::<i8>(&mut wav_reader, &mut encoder),
+        SampleFormat::I16 => get_encoded_chucks::<i16>(&mut wav_reader, &mut encoder),
+        SampleFormat::I32 => get_encoded_chucks::<i32>(&mut wav_reader, &mut encoder),
+        SampleFormat::F32 => get_encoded_chucks::<f32>(&mut wav_reader, &mut encoder),
+    }
+    .into_iter()
+    .map(|mut chunk| {
+        if command.gain_normalizer {
+            let rms_level = GainNormalizerFilter::get_rms_level(&chunk);
+            gain_filter.filter(&mut chunk, rms_level);
+        }
+        if command.band_pass {
+            bandpass_filter.filter(&mut chunk);
+        }
+        chunk
+    })
+    .for_each(|encoded_chunk| {
+        for sample in encoded_chunk {
+            writer.write_sample(sample).ok();
+        }
+    });
     writer.finalize().expect("Unable to save file");
     Ok(())
+}
+
+fn get_encoded_chucks<T: Sample + hound::Sample>(
+    wav_reader: &mut WavReader<BufReader<File>>,
+    encoder: &mut AudioEncoder,
+) -> Vec<Vec<f32>> {
+    wav_reader
+        .samples::<T>()
+        .map(|chunk| *chunk.as_ref().unwrap())
+        .collect::<Vec<_>>()
+        .chunks_exact(encoder.get_input_frame_length())
+        .map(|chuck| encoder.rencode_and_resample(chuck.to_vec()))
+        .collect::<Vec<Vec<f32>>>()
 }

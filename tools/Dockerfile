@@ -8,6 +8,8 @@ RUN mkdir -p /code/.cargo \
   && cargo vendor > /code/.cargo/config
 # build
 FROM rust:buster
+ARG RUSTFLAGS ""
+ENV RUSTFLAGS $RUSTFLAGS
 COPY src /code/src
 COPY Cargo.* /code/
 COPY --from=rust_vendor /code/.cargo /code/.cargo
