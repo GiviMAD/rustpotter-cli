@@ -32,13 +32,13 @@ pub struct TrainCommand {
     #[clap(short = 'c', long, default_value_t = 16)]
     /// Number of extracted mel-frequency cepstral coefficients
     mfcc_size: u16,
-    #[clap(short = 'm')]
+    #[clap(short = 'm', long)]
     /// Model to continue training from
-    wakeword_model: Option<String>,
+    from_model: Option<String>,
 }
 pub fn train(command: TrainCommand) -> Result<(), String> {
     println!("Start training {}!", command.model_path);
-    let model: Option<WakewordModel> = if let Some(wakeword_model_path) = command.wakeword_model {
+    let model: Option<WakewordModel> = if let Some(wakeword_model_path) = command.from_model {
         Some(WakewordModel::load_from_file(&wakeword_model_path)?)
     } else {
         None
