@@ -79,8 +79,29 @@ for i in {0..9}; do (rustpotter-cli record $WAKEWORD_FILENAME$i.wav && sleep 1);
 The `train` command allows to create wakeword models.
 
 It's required to setup a training and testing folders containing wav records which need to be tagged (contains [label] in its file name, where 'label' is the tag the network should predict for that audio segment) or untagged (equivalent to contain [none] on the filename).
+The tag `none` is reserved because it will not emit a detections, but doesn't need to be added to the filenames.
 
-The size and cpu usage of a wakeword model is based on the model type you choose, and the audio duration it was trained on (which is defined by the max audio duration found on the training set).
+The size and cpu usage of a wakeword model is based on the model type you choose, and the audio duration it was trained on (which is defined by the max audio duration found on the training set) and the number of labels in the training set. The train command prints these information at the beginning.
+
+Example train directory (truncated output):
+
+```bash
+$ ls train
+'[ok_home]11.wav'                         building112.wav   kitchen21.wav    kitchen489.wav   kitchen91.wav   room98.wav
+'[ok_home]12.wav'                         building113.wav   kitchen210.wav   kitchen49.wav    kitchen92.wav   room99.wav
+'[ok_home]13.wav'                         building114.wav   kitchen211.wav   kitchen490.wav   kitchen93.wav   speaker0.wav
+'[ok_home]14.wav'                         building115.wav   kitchen212.wav   kitchen491.wav   kitchen94.wav   speaker1.wav
+'[ok_home]15.wav'                         building116.wav   kitchen213.wav   kitchen492.wav   kitchen95.wav   speaker10.wav
+'[ok_home]16.wav'                         building117.wav   kitchen214.wav   kitchen493.wav   kitchen96.wav   speaker100.wav
+'[ok_home]1692561880432.wav'              building118.wav   kitchen215.wav   kitchen494.wav   kitchen97.wav   speaker101.wav
+...
+```
+
+Those will train a model to spot "ok_home". These dataset includes about 250 records of the wakeword (the records prefixed by "[ok_home]") and about 1800 records of noises or silence, as you can see I have named those depending on what or where I was recording, but that doesn't matter as long as they do not include the delimiters "[" and "]" those are threated as if they include "[none]".
+
+The files in the test folder should follow same rules. In this case it contains 41 records of the wakeword and around 78 random records.
+
+It's recommended to have records of the same duration in both folders, if not the data will be truncated or padded with silence  by the max record duration on the train folder (this happens in-memory, it does not modifies the files).
 
 Example run:
 
@@ -130,9 +151,15 @@ Training on 1950ms of audio.
 trained-small.rpw created!
 ```
 
-Note that you can obtain different results on different executions with the same training set as the initialization of the weights is not constant.
+Be aware that you can obtain different results on different executions with the same training set as the initialization of the weights is not constant.
+
+You can continue training from another model using the `-m` option, in that case the options used to create that model (and the audio duration) are used instead.
 
 To get a correct idea about the accuracy of the model, do not share records between the train and test folders.
+
+One last tip, you can take advantage of the`spot` command option for creating records on partial spot, it's an easy way to record samples.
+For example creating a wakeword reference to use for capturing records for later training a wakeword model,
+but also it's a great way of capturing records of false positives detected by a wakeword model, which are very valuable for training a better version.
 
 ## Creating a Wakeword Reference
 
@@ -159,7 +186,7 @@ ok home created!
 ## Using a model
 
 You can use the commands `spot` to test a model in real time using the available audio inputs,
-or `test_model` to do it against an audio file.
+or `test` to do it against an audio file.
 Both expose similar options to make change from one to the other simpler.
 
 This way you can record an example record and tune the options there to then test those on real time. 
@@ -179,3 +206,10 @@ The more relevant options for the `spot` and `test` commands are:
 * `-e` enables the eager mode so detection is emitted as soon as possible (on min positive scores).
 * `-g` enables gain normalization. To debug the gain normalization you can use `--debug-gain`, or look at the gain reflected on the detection.
 * `--gain-ref` changes the gain normalization reference. (the default value is printed at the beginning when `--debug-gain` is provided, depends on the wakeword)
+
+### Record on Partial Detections
+
+Rustpotter can create audio records every partial detection, this can be useful to collect samples or to debug the behavior of the library.
+
+This can be enabled by providing a folder path to the `spot` or `test` commands in the `--record-path` option.
+The folder must exists and be writable for the records to be created.
